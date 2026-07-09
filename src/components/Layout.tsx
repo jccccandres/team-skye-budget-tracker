@@ -1,4 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { MobileHeader } from './MobileHeader'
+import { MobileNav } from './MobileNav'
+import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../hooks/useAuth'
 
 const navItems = [
@@ -12,8 +15,8 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
   return [
     'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
     isActive
-      ? 'bg-slate-900 text-white'
-      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+      ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100',
   ].join(' ')
 }
 
@@ -21,11 +24,11 @@ export function Layout() {
   const { user, signOut } = useAuth()
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <aside className="flex w-56 flex-col border-r border-slate-200 bg-white">
-        <div className="border-b border-slate-200 px-4 py-5">
-          <h1 className="text-lg font-semibold text-slate-900">Budget Tracker</h1>
-          <p className="mt-1 truncate text-xs text-slate-500">{user?.email}</p>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 md:flex">
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex">
+        <div className="border-b border-slate-200 px-4 py-5 dark:border-slate-800">
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Budget Tracker</h1>
+          <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
         </div>
 
         <nav className="flex-1 space-y-1 p-3">
@@ -36,22 +39,29 @@ export function Layout() {
           ))}
         </nav>
 
-        <div className="border-t border-slate-200 p-3">
+        <div className="space-y-2 border-t border-slate-200 p-3 dark:border-slate-800">
+          <ThemeToggle />
           <button
             type="button"
             onClick={() => void signOut()}
-            className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
           >
             Sign out
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-5xl px-6 py-8">
-          <Outlet />
-        </div>
-      </main>
+      <div className="flex min-h-screen flex-1 flex-col">
+        <MobileHeader />
+
+        <main className="flex-1 overflow-auto px-4 py-4 pb-24 md:px-6 md:py-8 md:pb-8">
+          <div className="mx-auto max-w-5xl">
+            <Outlet />
+          </div>
+        </main>
+
+        <MobileNav />
+      </div>
     </div>
   )
 }

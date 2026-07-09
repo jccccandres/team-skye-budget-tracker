@@ -35,6 +35,7 @@ CREATE TABLE debts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'other' CHECK (category IN ('other', 'car_loan', 'house_loan')),
   type debt_type NOT NULL,
   total_amount NUMERIC(12, 2) NOT NULL CHECK (total_amount >= 0),
   monthly_payment NUMERIC(12, 2) CHECK (monthly_payment IS NULL OR monthly_payment >= 0),
@@ -54,6 +55,7 @@ CREATE INDEX income_user_id_idx ON income (user_id);
 CREATE INDEX income_date_idx ON income (date);
 
 CREATE INDEX debts_user_id_idx ON debts (user_id);
+CREATE INDEX debts_category_idx ON debts (category);
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security
