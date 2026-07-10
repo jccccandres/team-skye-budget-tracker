@@ -5,7 +5,9 @@ import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { Modal } from '../components/ui/Modal'
 import { PageHeader, PrimaryButton, SecondaryButton } from '../components/ui/PageHeader'
 import { RecordCard, RecordCardList } from '../components/ui/RecordCard'
+import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
 import { useIncome } from '../hooks/useIncome'
+import { useWallets } from '../hooks/useWallets'
 import {
   tableBody,
   tableElement,
@@ -18,7 +20,9 @@ import { formatCurrency, formatDate } from '../lib/format'
 import type { Income } from '../types/database'
 
 export function IncomePage() {
-  const { items, loading, error, create, update, remove } = useIncome()
+  const { wallets } = useWallets()
+  const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
+  const { items, loading, error, create, update, remove } = useIncome(activeWalletId)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Income | null>(null)
 
@@ -53,6 +57,8 @@ export function IncomePage() {
         description={`${items.length} entries · ${formatCurrency(total)} total`}
         action={<PrimaryButton onClick={openCreate}>Add income</PrimaryButton>}
       />
+
+      <WalletSwitcher wallets={wallets} activeWalletId={activeWalletId} onChange={setActiveWalletId} />
 
       {error && (
         <div className="mb-4">

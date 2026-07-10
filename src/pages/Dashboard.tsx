@@ -3,13 +3,16 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
+import { WalletDashboardSection } from '../components/wallets/WalletDashboardSection'
 import { useDashboard } from '../hooks/useDashboard'
+import { useWallets } from '../hooks/useWallets'
 import { listPanel } from '../lib/classes'
 import { formatCurrency, formatDate, monthRange } from '../lib/format'
 import { debtCategoryLabel } from '../types/database'
 
 export function DashboardPage() {
   const { data, loading, error } = useDashboard()
+  const { wallets } = useWallets()
   const { start, end } = monthRange()
   const monthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
@@ -21,6 +24,8 @@ export function DashboardPage() {
       />
 
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
+
+      <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Personal</h3>
 
       {loading ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">Loading dashboard…</p>
@@ -146,6 +151,10 @@ export function DashboardPage() {
               )}
             </section>
           </div>
+
+          {wallets.map((wallet) => (
+            <WalletDashboardSection key={wallet.id} wallet={wallet} />
+          ))}
         </>
       )}
     </div>

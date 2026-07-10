@@ -5,6 +5,7 @@ const navItems = [
   { to: '/expenses', label: 'Expenses', shortLabel: 'Spend' },
   { to: '/income', label: 'Income', shortLabel: 'Income' },
   { to: '/debts', label: 'Debts', shortLabel: 'Debts' },
+  { to: '/savings', label: 'Savings', shortLabel: 'Save' },
 ] as const
 
 function bottomNavClass({ isActive }: { isActive: boolean }) {

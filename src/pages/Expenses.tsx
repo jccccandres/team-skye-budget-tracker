@@ -5,7 +5,9 @@ import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { Modal } from '../components/ui/Modal'
 import { PageHeader, PrimaryButton, SecondaryButton } from '../components/ui/PageHeader'
 import { RecordCard, RecordCardList } from '../components/ui/RecordCard'
+import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
 import { useExpenses } from '../hooks/useExpenses'
+import { useWallets } from '../hooks/useWallets'
 import {
   tableBody,
   tableElement,
@@ -18,7 +20,9 @@ import { formatCurrency, formatDate } from '../lib/format'
 import type { Expense } from '../types/database'
 
 export function ExpensesPage() {
-  const { items, loading, error, create, update, remove } = useExpenses()
+  const { wallets } = useWallets()
+  const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
+  const { items, loading, error, create, update, remove } = useExpenses(activeWalletId)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
 
@@ -53,6 +57,8 @@ export function ExpensesPage() {
         description={`${items.length} entries · ${formatCurrency(total)} total`}
         action={<PrimaryButton onClick={openCreate}>Add expense</PrimaryButton>}
       />
+
+      <WalletSwitcher wallets={wallets} activeWalletId={activeWalletId} onChange={setActiveWalletId} />
 
       {error && (
         <div className="mb-4">

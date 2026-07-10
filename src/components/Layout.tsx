@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { InviteBanner } from './wallets/InviteBanner'
 import { MobileHeader } from './MobileHeader'
 import { MobileNav } from './MobileNav'
 import { ThemeToggle } from './ThemeToggle'
@@ -9,6 +10,8 @@ const navItems = [
   { to: '/expenses', label: 'Expenses' },
   { to: '/income', label: 'Income' },
   { to: '/debts', label: 'Debts' },
+  { to: '/savings', label: 'Savings' },
+  { to: '/wallets', label: 'Shared wallets' },
 ] as const
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
@@ -56,6 +59,7 @@ export function Layout() {
 
         <main className="flex-1 overflow-auto px-4 py-4 pb-24 md:px-6 md:py-8 md:pb-8">
           <div className="mx-auto max-w-5xl">
+            <InviteBanner />
             <Outlet />
           </div>
         </main>

@@ -3,7 +3,11 @@ import { supabase } from '../lib/supabaseClient'
 import type { Income, IncomeInsert, IncomeUpdate } from '../types/database'
 import { useAuth } from './useAuth'
 
-export function useIncome() {
+/**
+ * @param walletId - Pass a wallet id to scope to a shared wallet, or omit/null
+ * for the signed-in user's personal (wallet_id IS NULL) income.
+ */
+export function useIncome(walletId?: string | null) {
   const { user } = useAuth()
   const [items, setItems] = useState<Income[]>([])
   const [loading, setLoading] = useState(true)
@@ -19,10 +23,10 @@ export function useIncome() {
     setLoading(true)
     setError(null)
 
-    const { data, error: fetchError } = await supabase
-      .from('income')
-      .select('*')
-      .order('date', { ascending: false })
+    let query = supabase.from('income').select('*').order('date', { ascending: false })
+    query = walletId ? query.eq('wallet_id', walletId) : query.is('wallet_id', null)
+
+    const { data, error: fetchError } = await query
 
     if (fetchError) {
       setError(fetchError.message)
@@ -32,7 +36,7 @@ export function useIncome() {
     }
 
     setLoading(false)
-  }, [user])
+  }, [user, walletId])
 
   useEffect(() => {
     void refresh()
@@ -45,6 +49,7 @@ export function useIncome() {
       const { error: insertError } = await supabase.from('income').insert({
         ...input,
         user_id: user.id,
+        wallet_id: walletId ?? null,
       })
 
       if (insertError) return { error: insertError.message }
@@ -52,18 +57,14 @@ export function useIncome() {
       await refresh()
       return { error: null }
     },
-    [user, refresh],
+    [user, walletId, refresh],
   )
 
   const update = useCallback(
     async (id: string, input: IncomeUpdate) => {
       if (!supabase || !user) return { error: 'Not authenticated.' }
 
-      const { error: updateError } = await supabase
-        .from('income')
-        .update(input)
-        .eq('id', id)
-        .eq('user_id', user.id)
+      const { error: updateError } = await supabase.from('income').update(input).eq('id', id)
 
       if (updateError) return { error: updateError.message }
 
@@ -77,11 +78,7 @@ export function useIncome() {
     async (id: string) => {
       if (!supabase || !user) return { error: 'Not authenticated.' }
 
-      const { error: deleteError } = await supabase
-        .from('income')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id)
+      const { error: deleteError } = await supabase.from('income').delete().eq('id', id)
 
       if (deleteError) return { error: deleteError.message }
 

@@ -45,7 +45,12 @@ function breakdownForCategory(debts: Debt[], category: DebtCategory): DebtBreakd
   }
 }
 
-export function useDashboard() {
+/**
+ * @param walletId - Pass a wallet id to get a shared wallet's income/expense
+ * summary (no debts - debts remain personal-only). Omit/null for the
+ * signed-in user's personal dashboard, which includes debts.
+ */
+export function useDashboard(walletId?: string | null) {
   const { user } = useAuth()
   const [data, setData] = useState<DashboardData>(emptyData)
   const [loading, setLoading] = useState(true)
@@ -62,19 +67,34 @@ export function useDashboard() {
     setError(null)
 
     const { start, end } = monthRange()
+    const isWallet = Boolean(walletId)
+
+    let incomeQuery = supabase.from('income').select('amount').gte('date', start).lte('date', end)
+    let expensesQuery = supabase.from('expenses').select('*').gte('date', start).lte('date', end)
+    let recentQuery = supabase
+      .from('expenses')
+      .select('*')
+      .order('date', { ascending: false })
+      .limit(5)
+
+    incomeQuery = isWallet ? incomeQuery.eq('wallet_id', walletId) : incomeQuery.is('wallet_id', null)
+    expensesQuery = isWallet
+      ? expensesQuery.eq('wallet_id', walletId)
+      : expensesQuery.is('wallet_id', null)
+    recentQuery = isWallet ? recentQuery.eq('wallet_id', walletId) : recentQuery.is('wallet_id', null)
 
     const [incomeResult, expensesResult, debtsResult, recentResult] = await Promise.all([
-      supabase.from('income').select('amount').gte('date', start).lte('date', end),
-      supabase.from('expenses').select('amount').gte('date', start).lte('date', end),
-      supabase.from('debts').select('*'),
-      supabase.from('expenses').select('*').order('date', { ascending: false }).limit(5),
+      incomeQuery,
+      expensesQuery,
+      // Debts are personal-only, so only fetch them for the personal dashboard.
+      isWallet
+        ? Promise.resolve({ data: [] as Debt[], error: null })
+        : supabase.from('debts').select('*'),
+      recentQuery,
     ])
 
     const firstError =
-      incomeResult.error ??
-      expensesResult.error ??
-      debtsResult.error ??
-      recentResult.error
+      incomeResult.error ?? expensesResult.error ?? debtsResult.error ?? recentResult.error
 
     if (firstError) {
       setError(firstError.message)
@@ -122,7 +142,7 @@ export function useDashboard() {
       upcomingDebts,
     })
     setLoading(false)
-  }, [user])
+  }, [user, walletId])
 
   useEffect(() => {
     void refresh()
