@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { TransferForm } from '../components/transfers/TransferForm'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
-import { PageHeader } from '../components/ui/PageHeader'
+import { Modal } from '../components/ui/Modal'
+import { PageHeader, PrimaryButton } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { WalletDashboardSection } from '../components/wallets/WalletDashboardSection'
 import { useDashboard } from '../hooks/useDashboard'
@@ -11,16 +14,18 @@ import { formatCurrency, formatDate, monthRange } from '../lib/format'
 import { debtCategoryLabel } from '../types/database'
 
 export function DashboardPage() {
-  const { data, loading, error } = useDashboard()
+  const { data, loading, error, refresh } = useDashboard()
   const { wallets } = useWallets()
   const { start, end } = monthRange()
   const monthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const [showTransferForm, setShowTransferForm] = useState(false)
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
         description={`Overview for ${monthLabel}`}
+        action={<PrimaryButton onClick={() => setShowTransferForm(true)}>Transfer money</PrimaryButton>}
       />
 
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
@@ -45,9 +50,15 @@ export function DashboardPage() {
               variant="negative"
             />
             <StatCard
+              label="Transferred out"
+              value={formatCurrency(data.transferredOut)}
+              hint="Sent to wallets/savings this month"
+              variant={data.transferredOut > 0 ? 'negative' : 'default'}
+            />
+            <StatCard
               label="Net balance"
               value={formatCurrency(data.netBalance)}
-              hint="Income minus expenses"
+              hint="Income minus expenses minus transfers out"
               variant={data.netBalance >= 0 ? 'positive' : 'negative'}
             />
             <StatCard
@@ -156,6 +167,18 @@ export function DashboardPage() {
             <WalletDashboardSection key={wallet.id} wallet={wallet} />
           ))}
         </>
+      )}
+
+      {showTransferForm && (
+        <Modal title="Transfer money" onClose={() => setShowTransferForm(false)}>
+          <TransferForm
+            onDone={() => {
+              setShowTransferForm(false)
+              void refresh()
+            }}
+            onCancel={() => setShowTransferForm(false)}
+          />
+        </Modal>
       )}
     </div>
   )

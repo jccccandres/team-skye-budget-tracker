@@ -14,7 +14,7 @@ export function WalletDashboardSection({ wallet }: { wallet: Wallet }) {
       {loading ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">Loading…</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-4">
           <StatCard
             label="Income this month"
             value={formatCurrency(data.monthIncome)}
@@ -26,9 +26,15 @@ export function WalletDashboardSection({ wallet }: { wallet: Wallet }) {
             variant="negative"
           />
           <StatCard
+            label="Transferred out"
+            value={formatCurrency(data.transferredOut)}
+            hint="Sent to savings this month"
+            variant={data.transferredOut > 0 ? 'negative' : 'default'}
+          />
+          <StatCard
             label="Net balance"
             value={formatCurrency(data.netBalance)}
-            hint="Income minus expenses"
+            hint="Income minus expenses minus transfers out"
             variant={data.netBalance >= 0 ? 'positive' : 'negative'}
           />
         </div>

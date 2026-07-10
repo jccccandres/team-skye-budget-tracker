@@ -3,6 +3,8 @@ export type DebtCategory = 'other' | 'car_loan' | 'house_loan'
 export type WalletRole = 'owner' | 'member'
 export type InviteStatus = 'pending' | 'accepted' | 'declined'
 export type SavingsTransactionType = 'deposit' | 'withdrawal'
+export type TransferSourceType = 'personal' | 'wallet'
+export type TransferDestinationType = 'wallet' | 'savings_goal'
 
 export interface Expense {
   id: string
@@ -69,6 +71,20 @@ export interface SavingsTransaction {
   created_at: string
 }
 
+export interface Transfer {
+  id: string
+  user_id: string
+  amount: number
+  date: string
+  note: string | null
+  source_type: TransferSourceType
+  source_wallet_id: string | null
+  destination_type: TransferDestinationType
+  destination_wallet_id: string | null
+  destination_savings_goal_id: string | null
+  created_at: string
+}
+
 export interface Debt {
   id: string
   user_id: string
@@ -103,6 +119,17 @@ export type SavingsTransactionInsert = Pick<
   SavingsTransaction,
   'amount' | 'type' | 'date' | 'note'
 >
+
+export interface CreateTransferInput {
+  amount: number
+  date: string
+  note: string | null
+  sourceType: TransferSourceType
+  sourceWalletId: string | null
+  destinationType: TransferDestinationType
+  destinationWalletId: string | null
+  destinationSavingsGoalId: string | null
+}
 
 export const DEBT_CATEGORIES = [
   { value: 'other', label: 'Other' },

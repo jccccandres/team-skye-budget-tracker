@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { monthRange } from '../lib/format'
 import { supabase } from '../lib/supabaseClient'
 import type { Debt, DebtCategory, Expense } from '../types/database'
 import { useAuth } from './useAuth'
+import { sumTransfersOut, useTransfers } from './useTransfers'
 
 export interface DebtBreakdown {
   remaining: number
@@ -12,6 +13,7 @@ export interface DebtBreakdown {
 export interface DashboardData {
   monthIncome: number
   monthExpenses: number
+  transferredOut: number
   netBalance: number
   totalDebtRemaining: number
   totalMonthlyPayments: number
@@ -29,6 +31,7 @@ const emptyBreakdown: Record<DebtCategory, DebtBreakdown> = {
 const emptyData: DashboardData = {
   monthIncome: 0,
   monthExpenses: 0,
+  transferredOut: 0,
   netBalance: 0,
   totalDebtRemaining: 0,
   totalMonthlyPayments: 0,
@@ -55,6 +58,7 @@ export function useDashboard(walletId?: string | null) {
   const [data, setData] = useState<DashboardData>(emptyData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { items: transfers, loading: transfersLoading } = useTransfers()
 
   const refresh = useCallback(async () => {
     if (!supabase || !user) {
@@ -130,6 +134,7 @@ export function useDashboard(walletId?: string | null) {
     setData({
       monthIncome,
       monthExpenses,
+      transferredOut: 0,
       netBalance: monthIncome - monthExpenses,
       totalDebtRemaining,
       totalMonthlyPayments,
@@ -148,5 +153,16 @@ export function useDashboard(walletId?: string | null) {
     void refresh()
   }, [refresh])
 
-  return { data, loading, error, refresh }
+  const finalData = useMemo<DashboardData>(() => {
+    const { start, end } = monthRange()
+    const transferredOut = sumTransfersOut(transfers, walletId ?? null, start, end)
+
+    return {
+      ...data,
+      transferredOut,
+      netBalance: data.monthIncome - data.monthExpenses - transferredOut,
+    }
+  }, [data, transfers, walletId])
+
+  return { data: finalData, loading: loading || transfersLoading, error, refresh }
 }
