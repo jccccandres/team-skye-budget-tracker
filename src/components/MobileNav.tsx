@@ -1,11 +1,9 @@
 import { NavLink } from 'react-router-dom'
 
 const navItems = [
-  { to: '/dashboard', label: 'Home', shortLabel: 'Home' },
-  { to: '/expenses', label: 'Expenses', shortLabel: 'Spend' },
+  { to: '/dashboard', label: 'Dashboard', shortLabel: 'Dashboard' },
+  { to: '/expenses', label: 'Expenses', shortLabel: 'Expenses' },
   { to: '/income', label: 'Income', shortLabel: 'Income' },
-  { to: '/debts', label: 'Debts', shortLabel: 'Debts' },
-  { to: '/savings', label: 'Savings', shortLabel: 'Save' },
 ] as const
 
 function bottomNavClass({ isActive }: { isActive: boolean }) {
