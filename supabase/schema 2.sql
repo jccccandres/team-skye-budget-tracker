@@ -184,8 +184,19 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION public.auth_user_email()
+RETURNS TEXT
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT email FROM auth.users WHERE id = auth.uid();
+$$;
+
 GRANT EXECUTE ON FUNCTION public.is_wallet_member(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_wallet_creator(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.auth_user_email() TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Savings: keep current_amount in sync with its transactions automatically.
@@ -331,7 +342,7 @@ CREATE POLICY "Inviter and invitee can view invite"
   ON wallet_invites FOR SELECT
   USING (
     invited_by = auth.uid()
-    OR invited_email = (SELECT email FROM auth.users WHERE id = auth.uid())
+    OR lower(invited_email) = lower(auth_user_email())
   );
 
 CREATE POLICY "Wallet members can create invites"
@@ -340,8 +351,8 @@ CREATE POLICY "Wallet members can create invites"
 
 CREATE POLICY "Invitee can update invite status"
   ON wallet_invites FOR UPDATE
-  USING (invited_email = (SELECT email FROM auth.users WHERE id = auth.uid()))
-  WITH CHECK (invited_email = (SELECT email FROM auth.users WHERE id = auth.uid()));
+  USING (lower(invited_email) = lower(auth_user_email()))
+  WITH CHECK (lower(invited_email) = lower(auth_user_email()));
 
 CREATE POLICY "Inviter can cancel a pending invite"
   ON wallet_invites FOR DELETE

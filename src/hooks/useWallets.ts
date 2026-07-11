@@ -28,28 +28,30 @@ export function useWallets() {
     const [walletsResult, membersResult, invitesResult] = await Promise.all([
       supabase.from('wallets').select('*').order('created_at', { ascending: true }),
       supabase.from('wallet_members').select('*'),
-      supabase
-        .from('wallet_invites')
-        .select('*')
-        .eq('invited_email', user.email)
-        .eq('status', 'pending'),
+      // RLS filters to invites for the current user; only filter by status here.
+      supabase.from('wallet_invites').select('*').eq('status', 'pending'),
     ])
 
-    const firstError = walletsResult.error ?? membersResult.error ?? invitesResult.error
-    if (firstError) {
-      setError(firstError.message)
-      setLoading(false)
-      return
+    const walletsError = walletsResult.error ?? membersResult.error
+    if (walletsError) {
+      setError(walletsError.message)
+      setWallets([])
+    } else {
+      const members = (membersResult.data as WalletMember[]) ?? []
+      const combined = ((walletsResult.data as Wallet[]) ?? []).map((wallet) => ({
+        ...wallet,
+        members: members.filter((m) => m.wallet_id === wallet.id),
+      }))
+      setWallets(combined)
     }
 
-    const members = (membersResult.data as WalletMember[]) ?? []
-    const combined = ((walletsResult.data as Wallet[]) ?? []).map((wallet) => ({
-      ...wallet,
-      members: members.filter((m) => m.wallet_id === wallet.id),
-    }))
+    if (invitesResult.error) {
+      setError((prev) => prev ?? invitesResult.error!.message)
+      setPendingInvites([])
+    } else {
+      setPendingInvites((invitesResult.data as WalletInvite[]) ?? [])
+    }
 
-    setWallets(combined)
-    setPendingInvites((invitesResult.data as WalletInvite[]) ?? [])
     setLoading(false)
   }, [user])
 
