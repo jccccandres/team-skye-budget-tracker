@@ -28,7 +28,7 @@ export function WalletDashboardSection({ wallet }: { wallet: Wallet }) {
           <StatCard
             label="Transferred out"
             value={formatCurrency(data.transferredOut)}
-            hint="Sent to savings this month"
+            hint="Your transfers to savings this month"
             variant={data.transferredOut > 0 ? 'negative' : 'default'}
           />
           <StatCard

@@ -3,7 +3,7 @@ import { monthRange } from '../lib/format'
 import { supabase } from '../lib/supabaseClient'
 import type { Debt, DebtCategory, Expense } from '../types/database'
 import { useAuth } from './useAuth'
-import { sumTransfersOut, useTransfers } from './useTransfers'
+import { sumTransfersInByOthers, sumTransfersOut, useTransfers } from './useTransfers'
 
 export interface DebtBreakdown {
   remaining: number
@@ -85,7 +85,10 @@ export function useDashboard(walletId?: string | null) {
     expensesQuery = isWallet
       ? expensesQuery.eq('wallet_id', walletId)
       : expensesQuery.is('wallet_id', null)
-    recentQuery = isWallet ? recentQuery.eq('wallet_id', walletId) : recentQuery.is('wallet_id', null)
+    // Personal dashboard: show recent expenses from personal + shared wallets (RLS filters access).
+    if (isWallet) {
+      recentQuery = recentQuery.eq('wallet_id', walletId)
+    }
 
     const [incomeResult, expensesResult, debtsResult, recentResult] = await Promise.all([
       incomeQuery,
@@ -154,15 +157,22 @@ export function useDashboard(walletId?: string | null) {
   }, [refresh])
 
   const finalData = useMemo<DashboardData>(() => {
+    if (!user) return data
+
     const { start, end } = monthRange()
-    const transferredOut = sumTransfersOut(transfers, walletId ?? null, start, end)
+    const transferredOut = sumTransfersOut(transfers, walletId ?? null, start, end, user.id)
+    const othersTransferIn = walletId
+      ? sumTransfersInByOthers(transfers, walletId, start, end, user.id)
+      : 0
+    const monthIncome = data.monthIncome - othersTransferIn
 
     return {
       ...data,
+      monthIncome,
       transferredOut,
-      netBalance: data.monthIncome - data.monthExpenses - transferredOut,
+      netBalance: monthIncome - data.monthExpenses - transferredOut,
     }
-  }, [data, transfers, walletId])
+  }, [data, transfers, walletId, user])
 
   return { data: finalData, loading: loading || transfersLoading, error, refresh }
 }

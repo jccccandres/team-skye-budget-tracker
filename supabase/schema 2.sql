@@ -198,6 +198,28 @@ GRANT EXECUTE ON FUNCTION public.is_wallet_member(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_wallet_creator(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.auth_user_email() TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.get_wallet_peer_emails(peer_user_ids UUID[])
+RETURNS TABLE(user_id UUID, email TEXT)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT u.id, u.email
+  FROM auth.users u
+  WHERE u.id = ANY(peer_user_ids)
+    AND u.id <> auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM wallet_members mine
+      JOIN wallet_members theirs ON mine.wallet_id = theirs.wallet_id
+      WHERE mine.user_id = auth.uid()
+        AND theirs.user_id = u.id
+    );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_wallet_peer_emails(UUID[]) TO authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Savings: keep current_amount in sync with its transactions automatically.
 -- Deposits add, withdrawals subtract. Runs server-side so it can't drift
@@ -472,11 +494,14 @@ CREATE POLICY "Users can delete own savings transactions"
   ON savings_transactions FOR DELETE
   USING (goal_id IN (SELECT id FROM savings_goals WHERE user_id = auth.uid()));
 
--- transfers: a user can only see/create their own, and only between
--- sources/destinations they're actually allowed to touch.
-CREATE POLICY "Users can view own transfers"
+-- transfers: visible to the creator and to members of any touched shared wallet.
+CREATE POLICY "Users can view relevant transfers"
   ON transfers FOR SELECT
-  USING (user_id = auth.uid());
+  USING (
+    user_id = auth.uid()
+    OR (source_type = 'wallet' AND is_wallet_member(source_wallet_id))
+    OR (destination_type = 'wallet' AND is_wallet_member(destination_wallet_id))
+  );
 
 CREATE POLICY "Users can create valid transfers"
   ON transfers FOR INSERT

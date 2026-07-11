@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TransferForm } from '../components/transfers/TransferForm'
+import { TransferHistory } from '../components/transfers/TransferHistory'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { Modal } from '../components/ui/Modal'
@@ -11,7 +12,13 @@ import { useDashboard } from '../hooks/useDashboard'
 import { useWallets } from '../hooks/useWallets'
 import { listPanel } from '../lib/classes'
 import { formatCurrency, formatDate, monthRange } from '../lib/format'
-import { debtCategoryLabel } from '../types/database'
+import { debtCategoryLabel, type Wallet } from '../types/database'
+
+function expenseSourceLabel(walletId: string | null, wallets: Wallet[]): string {
+  if (!walletId) return 'Personal'
+  const wallet = wallets.find((w) => w.id === walletId)
+  return wallet ? `${wallet.name} (shared)` : 'Shared wallet'
+}
 
 export function DashboardPage() {
   const { data, loading, error, refresh } = useDashboard()
@@ -52,7 +59,7 @@ export function DashboardPage() {
             <StatCard
               label="Transferred out"
               value={formatCurrency(data.transferredOut)}
-              hint="Sent to wallets/savings this month"
+              hint="Your transfers to wallets/savings this month"
               variant={data.transferredOut > 0 ? 'negative' : 'default'}
             />
             <StatCard
@@ -117,6 +124,8 @@ export function DashboardPage() {
                         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{expense.category}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
                           {formatDate(expense.date)}
+                          {' · '}
+                          {expenseSourceLabel(expense.wallet_id, wallets)}
                           {expense.description ? ` · ${expense.description}` : ''}
                         </p>
                       </div>
@@ -162,6 +171,13 @@ export function DashboardPage() {
               )}
             </section>
           </div>
+
+          <section className="mt-8">
+            <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Transfer history
+            </h3>
+            <TransferHistory />
+          </section>
 
           {wallets.map((wallet) => (
             <WalletDashboardSection key={wallet.id} wallet={wallet} />
