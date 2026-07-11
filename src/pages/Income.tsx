@@ -42,7 +42,11 @@ export function IncomePage() {
   }
 
   async function handleDelete(income: Income) {
-    if (!window.confirm(`Delete income from "${income.source}" (${formatCurrency(income.amount)})?`)) {
+    const message = income.transfer_id
+      ? `Delete this transfer deposit from "${income.source}" (${formatCurrency(income.amount)})? This will also remove it from transfer history and update dashboard balances.`
+      : `Delete income from "${income.source}" (${formatCurrency(income.amount)})?`
+
+    if (!window.confirm(message)) {
       return
     }
     await remove(income.id)
@@ -80,7 +84,10 @@ export function IncomePage() {
                 subtitle={formatDate(income.date)}
                 amount={formatCurrency(Number(income.amount))}
                 amountVariant="income"
-                meta={[{ label: 'Frequency', value: income.frequency }]}
+                meta={[
+                  { label: 'Frequency', value: income.frequency },
+                  ...(income.transfer_id ? [{ label: 'Type', value: 'Transfer' }] : []),
+                ]}
                 onEdit={() => openEdit(income)}
                 onDelete={() => void handleDelete(income)}
               />

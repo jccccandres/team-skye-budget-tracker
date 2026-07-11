@@ -21,6 +21,7 @@ export interface Income {
   id: string
   user_id: string
   wallet_id: string | null
+  transfer_id: string | null
   amount: number
   source: string
   frequency: string
@@ -64,6 +65,7 @@ export interface SavingsGoal {
 export interface SavingsTransaction {
   id: string
   goal_id: string
+  transfer_id: string | null
   amount: number
   type: SavingsTransactionType
   date: string

@@ -58,7 +58,7 @@ export function useDashboard(walletId?: string | null) {
   const [data, setData] = useState<DashboardData>(emptyData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { items: transfers, loading: transfersLoading } = useTransfers()
+  const { items: transfers, loading: transfersLoading, refresh: refreshTransfers } = useTransfers()
 
   const refresh = useCallback(async () => {
     if (!supabase || !user) {
@@ -149,8 +149,9 @@ export function useDashboard(walletId?: string | null) {
       recentExpenses: (recentResult.data as Expense[]) ?? [],
       upcomingDebts,
     })
+    await refreshTransfers()
     setLoading(false)
-  }, [user, walletId])
+  }, [user, walletId, refreshTransfers])
 
   useEffect(() => {
     void refresh()

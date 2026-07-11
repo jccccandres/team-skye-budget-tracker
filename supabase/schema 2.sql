@@ -125,6 +125,12 @@ CREATE TABLE transfers (
   )
 );
 
+ALTER TABLE income
+  ADD COLUMN transfer_id UUID UNIQUE REFERENCES transfers (id) ON DELETE CASCADE;
+
+ALTER TABLE savings_transactions
+  ADD COLUMN transfer_id UUID UNIQUE REFERENCES transfers (id) ON DELETE CASCADE;
+
 -- ---------------------------------------------------------------------------
 -- Indexes
 -- ---------------------------------------------------------------------------
@@ -303,11 +309,14 @@ BEGIN
   RETURNING id INTO new_transfer_id;
 
   IF p_destination_type = 'wallet' THEN
-    INSERT INTO income (user_id, wallet_id, amount, source, frequency, date)
-    VALUES (auth.uid(), p_destination_wallet_id, p_amount, COALESCE(p_note, 'Transfer'), 'One-time', p_date);
+    INSERT INTO income (user_id, wallet_id, amount, source, frequency, date, transfer_id)
+    VALUES (
+      auth.uid(), p_destination_wallet_id, p_amount,
+      COALESCE(p_note, 'Transfer'), 'One-time', p_date, new_transfer_id
+    );
   ELSIF p_destination_type = 'savings_goal' THEN
-    INSERT INTO savings_transactions (goal_id, amount, type, date, note)
-    VALUES (p_destination_savings_goal_id, p_amount, 'deposit', p_date, p_note);
+    INSERT INTO savings_transactions (goal_id, amount, type, date, note, transfer_id)
+    VALUES (p_destination_savings_goal_id, p_amount, 'deposit', p_date, p_note, new_transfer_id);
   END IF;
 
   RETURN new_transfer_id;
@@ -317,6 +326,30 @@ $$;
 GRANT EXECUTE ON FUNCTION public.create_transfer(
   NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID
 ) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.delete_linked_transfer()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF OLD.transfer_id IS NOT NULL THEN
+    DELETE FROM transfers WHERE id = OLD.transfer_id;
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER income_delete_linked_transfer
+  AFTER DELETE ON income
+  FOR EACH ROW
+  EXECUTE FUNCTION delete_linked_transfer();
+
+CREATE TRIGGER savings_transactions_delete_linked_transfer
+  AFTER DELETE ON savings_transactions
+  FOR EACH ROW
+  EXECUTE FUNCTION delete_linked_transfer();
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security
