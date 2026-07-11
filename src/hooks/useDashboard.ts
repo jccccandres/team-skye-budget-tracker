@@ -15,6 +15,7 @@ export interface DashboardData {
   monthExpenses: number
   transferredOut: number
   netBalance: number
+  hasDebts: boolean
   totalDebtRemaining: number
   totalMonthlyPayments: number
   debtByCategory: Record<DebtCategory, DebtBreakdown>
@@ -33,6 +34,7 @@ const emptyData: DashboardData = {
   monthExpenses: 0,
   transferredOut: 0,
   netBalance: 0,
+  hasDebts: false,
   totalDebtRemaining: 0,
   totalMonthlyPayments: 0,
   debtByCategory: emptyBreakdown,
@@ -139,6 +141,7 @@ export function useDashboard(walletId?: string | null) {
       monthExpenses,
       transferredOut: 0,
       netBalance: monthIncome - monthExpenses,
+      hasDebts: debts.length > 0,
       totalDebtRemaining,
       totalMonthlyPayments,
       debtByCategory: {

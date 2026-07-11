@@ -12,13 +12,24 @@ import { useDashboard } from '../hooks/useDashboard'
 import { useWallets } from '../hooks/useWallets'
 import { listPanel } from '../lib/classes'
 import { formatCurrency, formatDate, monthRange } from '../lib/format'
-import { debtCategoryLabel, type Wallet } from '../types/database'
+import { debtCategoryLabel, type DebtCategory, type Wallet } from '../types/database'
+import type { DebtBreakdown } from '../hooks/useDashboard'
 
 function expenseSourceLabel(walletId: string | null, wallets: Wallet[]): string {
   if (!walletId) return 'Personal'
   const wallet = wallets.find((w) => w.id === walletId)
   return wallet ? `${wallet.name} (shared)` : 'Shared wallet'
 }
+
+function categoryHasDebt(breakdown: DebtBreakdown): boolean {
+  return breakdown.remaining > 0 || breakdown.monthly > 0
+}
+
+const debtCategoryCards: { category: DebtCategory; label: string }[] = [
+  { category: 'car_loan', label: 'Car loans remaining' },
+  { category: 'house_loan', label: 'House loans remaining' },
+  { category: 'other', label: 'Other debt remaining' },
+]
 
 export function DashboardPage() {
   const { data, loading, error, refresh } = useDashboard()
@@ -68,42 +79,41 @@ export function DashboardPage() {
               hint="Income minus expenses minus transfers out"
               variant={data.netBalance >= 0 ? 'positive' : 'negative'}
             />
-            <StatCard
-              label="Car loans remaining"
-              value={formatCurrency(data.debtByCategory.car_loan.remaining)}
-              hint={`${formatCurrency(data.debtByCategory.car_loan.monthly)}/mo payments`}
-            />
-            <StatCard
-              label="House loans remaining"
-              value={formatCurrency(data.debtByCategory.house_loan.remaining)}
-              hint={`${formatCurrency(data.debtByCategory.house_loan.monthly)}/mo payments`}
-            />
-            <StatCard
-              label="Other debt remaining"
-              value={formatCurrency(data.debtByCategory.other.remaining)}
-              hint={`${formatCurrency(data.debtByCategory.other.monthly)}/mo payments`}
-            />
-            <StatCard
-              label="Total debt remaining"
-              value={formatCurrency(data.totalDebtRemaining)}
-              hint="Across all categories"
-            />
-            <StatCard
-              label="Monthly debt payments"
-              value={formatCurrency(data.totalMonthlyPayments)}
-              hint="Sum of installment payments"
-            />
-            <StatCard
-              label="Available after debts"
-              value={formatCurrency(data.netBalance - data.totalMonthlyPayments)}
-              hint="Net balance minus monthly debt payments"
-              variant={
-                data.netBalance - data.totalMonthlyPayments >= 0 ? 'positive' : 'negative'
-              }
-            />
+            {data.hasDebts && (
+              <>
+                {debtCategoryCards
+                  .filter(({ category }) => categoryHasDebt(data.debtByCategory[category]))
+                  .map(({ category, label }) => (
+                    <StatCard
+                      key={category}
+                      label={label}
+                      value={formatCurrency(data.debtByCategory[category].remaining)}
+                      hint={`${formatCurrency(data.debtByCategory[category].monthly)}/mo payments`}
+                    />
+                  ))}
+                <StatCard
+                  label="Total debt remaining"
+                  value={formatCurrency(data.totalDebtRemaining)}
+                  hint="Across all categories"
+                />
+                <StatCard
+                  label="Monthly debt payments"
+                  value={formatCurrency(data.totalMonthlyPayments)}
+                  hint="Sum of installment payments"
+                />
+                <StatCard
+                  label="Available after debts"
+                  value={formatCurrency(data.netBalance - data.totalMonthlyPayments)}
+                  hint="Net balance minus monthly debt payments"
+                  variant={
+                    data.netBalance - data.totalMonthlyPayments >= 0 ? 'positive' : 'negative'
+                  }
+                />
+              </>
+            )}
           </div>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <div className={`mt-8 grid gap-6 ${data.hasDebts ? 'lg:grid-cols-2' : ''}`}>
             <section>
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Recent expenses</h3>
@@ -138,38 +148,40 @@ export function DashboardPage() {
               )}
             </section>
 
-            <section>
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Upcoming due dates</h3>
-                <Link to="/debts" className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
-                  View all
-                </Link>
-              </div>
-              {data.upcomingDebts.length === 0 ? (
-                <EmptyState message="No debts with due dates set." />
-              ) : (
-                <ul className={listPanel}>
-                  {data.upcomingDebts.map((debt) => (
-                    <li
-                      key={debt.id}
-                      className="flex items-center justify-between px-4 py-3"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{debt.name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {debtCategoryLabel(debt.category)}
-                          {' · Due '}
-                          {debt.due_date ? formatDate(debt.due_date) : '—'}
-                        </p>
-                      </div>
-                      <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                        {formatCurrency(Number(debt.remaining_balance))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {data.hasDebts && (
+              <section>
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Upcoming due dates</h3>
+                  <Link to="/debts" className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
+                    View all
+                  </Link>
+                </div>
+                {data.upcomingDebts.length === 0 ? (
+                  <EmptyState message="No debts with due dates set." />
+                ) : (
+                  <ul className={listPanel}>
+                    {data.upcomingDebts.map((debt) => (
+                      <li
+                        key={debt.id}
+                        className="flex items-center justify-between px-4 py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{debt.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {debtCategoryLabel(debt.category)}
+                            {' · Due '}
+                            {debt.due_date ? formatDate(debt.due_date) : '—'}
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                          {formatCurrency(Number(debt.remaining_balance))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
           </div>
 
           <section className="mt-8">
