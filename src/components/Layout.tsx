@@ -44,6 +44,9 @@ export function Layout() {
 
         <div className="space-y-2 border-t border-slate-200 p-3 dark:border-slate-800">
           <ThemeToggle />
+          <NavLink to="/change-password" className={navLinkClass}>
+            Change password
+          </NavLink>
           <button
             type="button"
             onClick={() => void signOut()}

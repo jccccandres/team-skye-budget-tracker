@@ -65,6 +65,13 @@ export function MobileHeader() {
           </nav>
           <div className="border-t border-slate-200 pt-2 dark:border-slate-800">
             <ThemeToggle />
+            <NavLink
+              to="/change-password"
+              className={menuNavClass}
+              onClick={closeMenu}
+            >
+              Change password
+            </NavLink>
             <button
               type="button"
               onClick={() => {

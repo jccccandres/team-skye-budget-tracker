@@ -15,6 +15,10 @@ interface AuthContextValue {
   loading: boolean
   signUp: (email: string, password: string) => Promise<{ error: string | null }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -57,6 +61,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null }
   }, [])
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      if (!supabase) return { error: 'Supabase is not configured.' }
+
+      const email = session?.user.email
+      if (!email) return { error: 'Not authenticated.' }
+
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      })
+      if (verifyError) return { error: 'Current password is incorrect.' }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      return { error: error?.message ?? null }
+    },
+    [session?.user.email],
+  )
+
   const signOut = useCallback(async () => {
     if (!supabase) return
     await supabase.auth.signOut()
@@ -69,9 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signUp,
       signIn,
+      changePassword,
       signOut,
     }),
-    [session, loading, signUp, signIn, signOut],
+    [session, loading, signUp, signIn, changePassword, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

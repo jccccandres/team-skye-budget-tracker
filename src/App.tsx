@@ -12,6 +12,7 @@ import { IncomePage } from './pages/Income'
 import { LoginPage } from './pages/Login'
 import { SavingsPage } from './pages/Savings'
 import { SignUpPage } from './pages/SignUp'
+import { ChangePasswordPage } from './pages/ChangePassword'
 import { WalletsPage } from './pages/Wallets'
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
                   <Route path="/debts" element={<DebtsPage />} />
                   <Route path="/savings" element={<SavingsPage />} />
                   <Route path="/wallets" element={<WalletsPage />} />
+                  <Route path="/change-password" element={<ChangePasswordPage />} />
                 </Route>
               </Route>
 
