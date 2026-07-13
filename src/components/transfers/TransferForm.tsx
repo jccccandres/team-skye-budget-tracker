@@ -25,7 +25,8 @@ export function TransferForm({ onDone, onCancel }: TransferFormProps) {
   const [destinationWalletId, setDestinationWalletId] = useState(wallets[0]?.id ?? '')
   const [destinationGoalId, setDestinationGoalId] = useState(goals[0]?.id ?? '')
 
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState('0.00')
+  const [fee, setFee] = useState('0.00')
   const [date, setDate] = useState(todayISO())
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +75,13 @@ export function TransferForm({ onDone, onCancel }: TransferFormProps) {
       setError('Enter a valid amount.')
       return
     }
+
+    const parsedFee = Number(fee)
+    if (Number.isNaN(parsedFee) || parsedFee < 0) {
+      setError('Enter a valid fee.')
+      return
+    }
+    const feeToSubmit = parsedFee > 0 ? parsedFee : null
     if (sourceType === 'wallet' && !sourceWalletId) {
       setError('Select a source wallet.')
       return
@@ -98,6 +106,7 @@ export function TransferForm({ onDone, onCancel }: TransferFormProps) {
     setSubmitting(true)
     const result = await createTransfer({
       amount: parsedAmount,
+      fee: feeToSubmit,
       date,
       note: note.trim() || null,
       sourceType,
@@ -205,6 +214,17 @@ export function TransferForm({ onDone, onCancel }: TransferFormProps) {
           required
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
+        />
+      </FormField>
+
+      <FormField label="Fee (optional)" htmlFor="transfer-fee">
+        <TextInput
+          id="transfer-fee"
+          type="number"
+          min="0"
+          step="0.01"
+          value={fee}
+          onChange={(e) => setFee(e.target.value)}
         />
       </FormField>
 

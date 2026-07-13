@@ -65,6 +65,7 @@ export function useTransfers() {
 
       const { error: rpcError } = await supabase.rpc('create_transfer', {
         p_amount: input.amount,
+        p_fee: input.fee,
         p_date: input.date,
         p_note: input.note,
         p_source_type: input.sourceType,

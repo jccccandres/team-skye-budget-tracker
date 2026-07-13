@@ -42,7 +42,11 @@ export function ExpensesPage() {
   }
 
   async function handleDelete(expense: Expense) {
-    if (!window.confirm(`Delete expense "${expense.category}" (${formatCurrency(expense.amount)})?`)) {
+    const message = expense.transfer_id
+      ? `Delete this transfer fee (${formatCurrency(expense.amount)})? The transfer will remain; only this expense entry is removed.`
+      : `Delete expense "${expense.category}" (${formatCurrency(expense.amount)})?`
+
+    if (!window.confirm(message)) {
       return
     }
     await remove(expense.id)
@@ -80,11 +84,12 @@ export function ExpensesPage() {
                 subtitle={formatDate(expense.date)}
                 amount={formatCurrency(Number(expense.amount))}
                 amountVariant="expense"
-                meta={
-                  expense.description
+                meta={[
+                  ...(expense.description
                     ? [{ label: 'Description', value: expense.description }]
-                    : []
-                }
+                    : []),
+                  ...(expense.transfer_id ? [{ label: 'Type', value: 'Transfer fee' }] : []),
+                ]}
                 onEdit={() => openEdit(expense)}
                 onDelete={() => void handleDelete(expense)}
               />

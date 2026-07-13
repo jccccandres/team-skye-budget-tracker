@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS wallets CASCADE;
 
 -- 2. Functions (safe now that dependent policies are gone)
 DROP FUNCTION IF EXISTS public.create_transfer(NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.create_transfer(NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID, NUMERIC) CASCADE;
 DROP FUNCTION IF EXISTS public.get_wallet_peer_emails(UUID[]) CASCADE;
 DROP FUNCTION IF EXISTS public.auth_user_email() CASCADE;
 DROP FUNCTION IF EXISTS public.is_wallet_creator(UUID) CASCADE;

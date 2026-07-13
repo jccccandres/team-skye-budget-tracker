@@ -40,11 +40,19 @@ export function TransferHistory() {
               {' · Created by '}
               {user ? transferCreatorLabel(transfer, user.id, creatorEmails) : '—'}
               {transfer.note ? ` · ${transfer.note}` : ''}
+              {transfer.fee ? ` · Fee ${formatCurrency(Number(transfer.fee))}` : ''}
             </p>
           </div>
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {formatCurrency(Number(transfer.amount))}
-          </span>
+          <div className="text-right">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              {formatCurrency(Number(transfer.amount))}
+            </span>
+            {transfer.fee ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                + {formatCurrency(Number(transfer.fee))} fee
+              </p>
+            ) : null}
+          </div>
         </li>
       ))}
     </ul>

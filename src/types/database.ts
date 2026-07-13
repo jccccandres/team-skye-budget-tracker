@@ -10,6 +10,7 @@ export interface Expense {
   id: string
   user_id: string
   wallet_id: string | null
+  transfer_id: string | null
   amount: number
   category: string
   description: string | null
@@ -77,6 +78,7 @@ export interface Transfer {
   id: string
   user_id: string
   amount: number
+  fee: number | null
   date: string
   note: string | null
   source_type: TransferSourceType
@@ -124,6 +126,7 @@ export type SavingsTransactionInsert = Pick<
 
 export interface CreateTransferInput {
   amount: number
+  fee: number | null
   date: string
   note: string | null
   sourceType: TransferSourceType
