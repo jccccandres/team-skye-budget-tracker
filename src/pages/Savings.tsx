@@ -14,7 +14,7 @@ function GoalCard({ goal, onEdit, onDelete }: { goal: SavingsGoal; onEdit: () =>
   const [expanded, setExpanded] = useState(false)
   const [showTxnForm, setShowTxnForm] = useState(false)
   const { items: transactions, loading, create, remove } = useSavingsTransactions(
-    expanded ? goal.id : null,
+    expanded || showTxnForm ? goal.id : null,
   )
   const { refresh: refreshGoals } = useSavingsGoals()
 

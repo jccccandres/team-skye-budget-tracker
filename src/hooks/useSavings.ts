@@ -140,7 +140,8 @@ export function useSavingsTransactions(goalId: string | null) {
   // after any change here the caller should also refresh the goals list.
   const create = useCallback(
     async (input: SavingsTransactionInsert) => {
-      if (!supabase || !user || !goalId) return { error: 'Not authenticated.' }
+      if (!supabase || !user) return { error: 'Not authenticated.' }
+      if (!goalId) return { error: 'No savings goal selected.' }
 
       const { error: insertError } = await supabase.from('savings_transactions').insert({
         ...input,
