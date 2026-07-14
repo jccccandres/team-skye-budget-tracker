@@ -14,6 +14,7 @@ interface RecordCardProps {
   amount: string
   amountVariant?: AmountVariant
   meta?: RecordMeta[]
+  extraActions?: ReactNode
   onEdit: () => void
   onDelete: () => void
 }
@@ -31,6 +32,7 @@ export function RecordCard({
   amount,
   amountVariant = 'neutral',
   meta = [],
+  extraActions,
   onEdit,
   onDelete,
 }: RecordCardProps) {
@@ -57,7 +59,8 @@ export function RecordCard({
         </dl>
       )}
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
+        {extraActions}
         <SecondaryButton className="min-h-10 flex-1" onClick={onEdit}>
           Edit
         </SecondaryButton>

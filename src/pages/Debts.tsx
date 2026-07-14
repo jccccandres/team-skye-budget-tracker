@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { DebtForm } from '../components/debts/DebtForm'
+import { DebtPaymentHistory } from '../components/debts/DebtPaymentHistory'
+import { TransferForm } from '../components/transfers/TransferForm'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { Modal } from '../components/ui/Modal'
@@ -47,6 +49,8 @@ export function DebtsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Debt | null>(null)
   const [createCategory, setCreateCategory] = useState<DebtCategory>('other')
+  const [payingDebt, setPayingDebt] = useState<Debt | null>(null)
+  const [historyDebt, setHistoryDebt] = useState<Debt | null>(null)
 
   const filteredItems = useMemo(() => {
     if (activeFilter === 'all') return items
@@ -150,6 +154,16 @@ export function DebtsPage() {
                 ]}
                 onEdit={() => openEdit(debt)}
                 onDelete={() => void handleDelete(debt)}
+                extraActions={
+                  <>
+                    <SecondaryButton className="min-h-10 flex-1" onClick={() => setPayingDebt(debt)}>
+                      Pay
+                    </SecondaryButton>
+                    <SecondaryButton className="min-h-10 flex-1" onClick={() => setHistoryDebt(debt)}>
+                      History
+                    </SecondaryButton>
+                  </>
+                }
               />
             ))}
           </RecordCardList>
@@ -196,6 +210,8 @@ export function DebtsPage() {
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
                     <div className="flex justify-end gap-2">
+                      <SecondaryButton onClick={() => setPayingDebt(debt)}>Pay</SecondaryButton>
+                      <SecondaryButton onClick={() => setHistoryDebt(debt)}>History</SecondaryButton>
                       <SecondaryButton onClick={() => openEdit(debt)}>
                         Edit
                       </SecondaryButton>
@@ -220,6 +236,22 @@ export function DebtsPage() {
             onSubmit={(data) => (editing ? update(editing.id, data) : create(data))}
             onCancel={closeForm}
           />
+        </Modal>
+      )}
+
+      {payingDebt && (
+        <Modal title={`Pay · ${payingDebt.name}`} onClose={() => setPayingDebt(null)}>
+          <TransferForm
+            presetDebtId={payingDebt.id}
+            onDone={() => setPayingDebt(null)}
+            onCancel={() => setPayingDebt(null)}
+          />
+        </Modal>
+      )}
+
+      {historyDebt && (
+        <Modal title={`Payment history · ${historyDebt.name}`} onClose={() => setHistoryDebt(null)}>
+          <DebtPaymentHistory debt={historyDebt} />
         </Modal>
       )}
     </div>

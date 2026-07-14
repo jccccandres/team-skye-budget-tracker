@@ -3,80 +3,57 @@ import { ErrorAlert } from '../ui/ErrorAlert'
 import { FormField, SelectInput, TextInput } from '../ui/FormField'
 import { PrimaryButton } from '../ui/PageHeader'
 import { useDebts } from '../../hooks/useDebts'
+import { useRecurringTransfers } from '../../hooks/useRecurringTransfers'
 import { useSavingsGoals } from '../../hooks/useSavings'
-import { useTransfers } from '../../hooks/useTransfers'
 import { useWallets } from '../../hooks/useWallets'
-import { todayISO } from '../../lib/format'
 import type { TransferDestinationType, TransferSourceType } from '../../types/database'
 
-interface TransferFormProps {
+interface RecurringTransferFormProps {
   onDone: () => void
   onCancel: () => void
-  /** Pre-select and lock the destination to a specific debt (used by the
-   * "Pay" shortcut on the Debts page). The person can still change the
-   * source and amount, just not the destination. */
-  presetDebtId?: string
 }
 
-export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormProps) {
+export function RecurringTransferForm({ onDone, onCancel }: RecurringTransferFormProps) {
   const { wallets } = useWallets()
   const { items: goals } = useSavingsGoals()
   const { items: debts } = useDebts()
-  const { createTransfer } = useTransfers()
+  const { create } = useRecurringTransfers()
 
+  const [label, setLabel] = useState('')
   const [sourceType, setSourceType] = useState<TransferSourceType>('personal')
   const [sourceWalletId, setSourceWalletId] = useState(wallets[0]?.id ?? '')
 
-  const [destinationType, setDestinationType] = useState<TransferDestinationType>(
-    presetDebtId ? 'debt' : 'wallet',
-  )
+  const [destinationType, setDestinationType] = useState<TransferDestinationType>('wallet')
   const [destinationWalletId, setDestinationWalletId] = useState(wallets[0]?.id ?? '')
   const [destinationGoalId, setDestinationGoalId] = useState(goals[0]?.id ?? '')
-  const [destinationDebtId, setDestinationDebtId] = useState(presetDebtId ?? debts[0]?.id ?? '')
+  const [destinationDebtId, setDestinationDebtId] = useState(debts[0]?.id ?? '')
 
-  const [amount, setAmount] = useState('0.00')
-  const [fee, setFee] = useState('0.00')
-  const [date, setDate] = useState(todayISO())
+  const [amount, setAmount] = useState('')
+  const [dayOfMonth, setDayOfMonth] = useState('1')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // The dropdowns render correctly the moment wallets/goals/debts load (since
-  // <select> falls back to showing the first <option> even when the
-  // controlled value doesn't match any of them yet) - but the underlying
-  // state can still be stuck at '' from before the data arrived. Keep the
-  // selected id in sync whenever the list changes and the current
-  // selection isn't actually valid anymore.
   useEffect(() => {
     if (wallets.length === 0) return
-    if (!wallets.some((w) => w.id === sourceWalletId)) {
-      setSourceWalletId(wallets[0].id)
-    }
+    if (!wallets.some((w) => w.id === sourceWalletId)) setSourceWalletId(wallets[0].id)
   }, [wallets, sourceWalletId])
 
   useEffect(() => {
     if (wallets.length === 0) return
-    if (!wallets.some((w) => w.id === destinationWalletId)) {
-      setDestinationWalletId(wallets[0].id)
-    }
+    if (!wallets.some((w) => w.id === destinationWalletId)) setDestinationWalletId(wallets[0].id)
   }, [wallets, destinationWalletId])
 
   useEffect(() => {
     if (goals.length === 0) return
-    if (!goals.some((g) => g.id === destinationGoalId)) {
-      setDestinationGoalId(goals[0].id)
-    }
+    if (!goals.some((g) => g.id === destinationGoalId)) setDestinationGoalId(goals[0].id)
   }, [goals, destinationGoalId])
 
   useEffect(() => {
-    if (presetDebtId || debts.length === 0) return
-    if (!debts.some((d) => d.id === destinationDebtId)) {
-      setDestinationDebtId(debts[0].id)
-    }
-  }, [debts, destinationDebtId, presetDebtId])
+    if (debts.length === 0) return
+    if (!debts.some((d) => d.id === destinationDebtId)) setDestinationDebtId(debts[0].id)
+  }, [debts, destinationDebtId])
 
-  // A wallet-sourced transfer can only go to a savings goal or a debt
-  // payment (moving it to another wallet isn't a supported flow yet).
   const destinationOptions = useMemo<TransferDestinationType[]>(
     () => (sourceType === 'wallet' ? ['savings_goal', 'debt'] : ['wallet', 'savings_goal', 'debt']),
     [sourceType],
@@ -87,17 +64,20 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
     setError(null)
 
     const parsedAmount = Number(amount)
+    const parsedDay = Number(dayOfMonth)
+
+    if (!label.trim()) {
+      setError('Give this rule a name, e.g. "Car loan auto-debit".')
+      return
+    }
     if (!parsedAmount || parsedAmount <= 0) {
       setError('Enter a valid amount.')
       return
     }
-
-    const parsedFee = Number(fee)
-    if (Number.isNaN(parsedFee) || parsedFee < 0) {
-      setError('Enter a valid fee.')
+    if (!parsedDay || parsedDay < 1 || parsedDay > 31) {
+      setError('Day of month must be between 1 and 31.')
       return
     }
-    const feeToSubmit = parsedFee > 0 ? parsedFee : null
     if (sourceType === 'wallet' && !sourceWalletId) {
       setError('Select a source wallet.')
       return
@@ -114,27 +94,19 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
       setError('Select a debt, or add one first.')
       return
     }
-    if (
-      sourceType === 'wallet' &&
-      destinationType === 'wallet' &&
-      sourceWalletId === destinationWalletId
-    ) {
-      setError('Source and destination wallets must be different.')
-      return
-    }
 
     setSubmitting(true)
-    const result = await createTransfer({
+    const result = await create({
+      label: label.trim(),
       amount: parsedAmount,
-      fee: feeToSubmit,
-      date,
+      day_of_month: parsedDay,
       note: note.trim() || null,
-      sourceType,
-      sourceWalletId: sourceType === 'wallet' ? sourceWalletId : null,
-      destinationType,
-      destinationWalletId: destinationType === 'wallet' ? destinationWalletId : null,
-      destinationSavingsGoalId: destinationType === 'savings_goal' ? destinationGoalId : null,
-      destinationDebtId: destinationType === 'debt' ? destinationDebtId : null,
+      source_type: sourceType,
+      source_wallet_id: sourceType === 'wallet' ? sourceWalletId : null,
+      destination_type: destinationType,
+      destination_wallet_id: destinationType === 'wallet' ? destinationWalletId : null,
+      destination_savings_goal_id: destinationType === 'savings_goal' ? destinationGoalId : null,
+      destination_debt_id: destinationType === 'debt' ? destinationDebtId : null,
     })
     setSubmitting(false)
 
@@ -144,9 +116,20 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <FormField label="From" htmlFor="transfer-source-type">
+      <FormField label="Name" htmlFor="rt-label">
+        <TextInput
+          id="rt-label"
+          type="text"
+          required
+          placeholder="e.g. Car loan auto-debit"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+      </FormField>
+
+      <FormField label="From" htmlFor="rt-source-type">
         <SelectInput
-          id="transfer-source-type"
+          id="rt-source-type"
           value={sourceType}
           onChange={(e) => setSourceType(e.target.value as TransferSourceType)}
         >
@@ -156,9 +139,9 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
       </FormField>
 
       {sourceType === 'wallet' && (
-        <FormField label="Source wallet" htmlFor="transfer-source-wallet">
+        <FormField label="Source wallet" htmlFor="rt-source-wallet">
           <SelectInput
-            id="transfer-source-wallet"
+            id="rt-source-wallet"
             value={sourceWalletId}
             onChange={(e) => setSourceWalletId(e.target.value)}
           >
@@ -171,11 +154,10 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
         </FormField>
       )}
 
-      <FormField label="To" htmlFor="transfer-destination-type">
+      <FormField label="To" htmlFor="rt-destination-type">
         <SelectInput
-          id="transfer-destination-type"
+          id="rt-destination-type"
           value={destinationType}
-          disabled={Boolean(presetDebtId)}
           onChange={(e) => setDestinationType(e.target.value as TransferDestinationType)}
         >
           {destinationOptions.includes('wallet') && <option value="wallet">A shared wallet</option>}
@@ -187,14 +169,12 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
       </FormField>
 
       {destinationType === 'wallet' && (
-        <FormField label="Destination wallet" htmlFor="transfer-destination-wallet">
+        <FormField label="Destination wallet" htmlFor="rt-destination-wallet">
           {wallets.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              You don't have any shared wallets yet.
-            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">No shared wallets yet.</p>
           ) : (
             <SelectInput
-              id="transfer-destination-wallet"
+              id="rt-destination-wallet"
               value={destinationWalletId}
               onChange={(e) => setDestinationWalletId(e.target.value)}
             >
@@ -209,14 +189,12 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
       )}
 
       {destinationType === 'savings_goal' && (
-        <FormField label="Destination goal" htmlFor="transfer-destination-goal">
+        <FormField label="Destination goal" htmlFor="rt-destination-goal">
           {goals.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              You don't have any savings goals yet.
-            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">No savings goals yet.</p>
           ) : (
             <SelectInput
-              id="transfer-destination-goal"
+              id="rt-destination-goal"
               value={destinationGoalId}
               onChange={(e) => setDestinationGoalId(e.target.value)}
             >
@@ -231,16 +209,13 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
       )}
 
       {destinationType === 'debt' && (
-        <FormField label="Debt" htmlFor="transfer-destination-debt">
+        <FormField label="Debt" htmlFor="rt-destination-debt">
           {debts.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              You don't have any debts tracked yet.
-            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">No debts tracked yet.</p>
           ) : (
             <SelectInput
-              id="transfer-destination-debt"
+              id="rt-destination-debt"
               value={destinationDebtId}
-              disabled={Boolean(presetDebtId)}
               onChange={(e) => setDestinationDebtId(e.target.value)}
             >
               {debts.map((d) => (
@@ -253,9 +228,9 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
         </FormField>
       )}
 
-      <FormField label="Amount" htmlFor="transfer-amount">
+      <FormField label="Amount" htmlFor="rt-amount">
         <TextInput
-          id="transfer-amount"
+          id="rt-amount"
           type="number"
           min="0"
           step="0.01"
@@ -265,32 +240,27 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
         />
       </FormField>
 
-      <FormField label="Fee (optional)" htmlFor="transfer-fee">
+      <FormField label="Day of month" htmlFor="rt-day">
         <TextInput
-          id="transfer-fee"
+          id="rt-day"
           type="number"
-          min="0"
-          step="0.01"
-          value={fee}
-          onChange={(e) => setFee(e.target.value)}
-        />
-      </FormField>
-
-      <FormField label="Date" htmlFor="transfer-date">
-        <TextInput
-          id="transfer-date"
-          type="date"
+          min="1"
+          max="31"
           required
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
+          value={dayOfMonth}
+          onChange={(e) => setDayOfMonth(e.target.value)}
         />
       </FormField>
+      <p className="-mt-2 text-xs text-slate-400 dark:text-slate-500">
+        For months with fewer days (e.g. February), this lands on the last day of that month
+        instead.
+      </p>
 
-      <FormField label="Note (optional)" htmlFor="transfer-note">
+      <FormField label="Note (optional)" htmlFor="rt-note">
         <TextInput
-          id="transfer-note"
+          id="rt-note"
           type="text"
-          placeholder="e.g. Salary contribution"
+          placeholder="Shown on the resulting transfer"
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
@@ -307,7 +277,7 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
           Cancel
         </button>
         <PrimaryButton type="submit" disabled={submitting}>
-          {submitting ? 'Transferring…' : 'Transfer'}
+          {submitting ? 'Saving…' : 'Save rule'}
         </PrimaryButton>
       </div>
     </form>

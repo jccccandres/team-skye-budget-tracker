@@ -4,7 +4,7 @@ export type WalletRole = 'owner' | 'member'
 export type InviteStatus = 'pending' | 'accepted' | 'declined'
 export type SavingsTransactionType = 'deposit' | 'withdrawal'
 export type TransferSourceType = 'personal' | 'wallet'
-export type TransferDestinationType = 'wallet' | 'savings_goal'
+export type TransferDestinationType = 'wallet' | 'savings_goal' | 'debt'
 
 export interface Expense {
   id: string
@@ -86,6 +86,17 @@ export interface Transfer {
   destination_type: TransferDestinationType
   destination_wallet_id: string | null
   destination_savings_goal_id: string | null
+  destination_debt_id: string | null
+  created_at: string
+}
+
+export interface DebtPayment {
+  id: string
+  debt_id: string
+  transfer_id: string | null
+  amount: number
+  date: string
+  note: string | null
   created_at: string
 }
 
@@ -134,6 +145,38 @@ export interface CreateTransferInput {
   destinationType: TransferDestinationType
   destinationWalletId: string | null
   destinationSavingsGoalId: string | null
+  destinationDebtId: string | null
+}
+
+export interface RecurringTransfer {
+  id: string
+  user_id: string
+  label: string
+  amount: number
+  day_of_month: number
+  note: string | null
+  source_type: TransferSourceType
+  source_wallet_id: string | null
+  destination_type: TransferDestinationType
+  destination_wallet_id: string | null
+  destination_savings_goal_id: string | null
+  destination_debt_id: string | null
+  active: boolean
+  last_applied_month: string | null
+  created_at: string
+}
+
+export interface RecurringTransferInsert {
+  label: string
+  amount: number
+  day_of_month: number
+  note: string | null
+  source_type: TransferSourceType
+  source_wallet_id: string | null
+  destination_type: TransferDestinationType
+  destination_wallet_id: string | null
+  destination_savings_goal_id: string | null
+  destination_debt_id: string | null
 }
 
 export const DEBT_CATEGORIES = [

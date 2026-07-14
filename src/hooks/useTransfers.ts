@@ -73,6 +73,7 @@ export function useTransfers() {
         p_destination_type: input.destinationType,
         p_destination_wallet_id: input.destinationWalletId,
         p_destination_savings_goal_id: input.destinationSavingsGoalId,
+        p_destination_debt_id: input.destinationDebtId,
       })
 
       if (rpcError) return { error: rpcError.message }

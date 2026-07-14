@@ -7,6 +7,7 @@ const menuNavItems = [
   { to: '/debts', label: 'Debts' },
   { to: '/savings', label: 'Savings' },
   { to: '/wallets', label: 'Shared wallets' },
+  { to: '/recurring', label: 'Recurring transfers' },
 ] as const
 
 function menuNavClass({ isActive }: { isActive: boolean }) {
