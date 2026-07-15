@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { InviteBanner } from './wallets/InviteBanner'
 import { MobileHeader } from './MobileHeader'
 import { MobileNav } from './MobileNav'
+import { QuickAddFab } from './QuickAddFab'
 import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../hooks/useAuth'
 
@@ -69,6 +70,8 @@ export function Layout() {
 
         <MobileNav />
       </div>
+
+      <QuickAddFab />
     </div>
   )
 }

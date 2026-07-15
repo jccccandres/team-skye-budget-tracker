@@ -1,12 +1,9 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { TransferForm } from '../components/transfers/TransferForm'
 import { TransferHistory } from '../components/transfers/TransferHistory'
 import { ProgressBar } from '../components/savings/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
-import { Modal } from '../components/ui/Modal'
-import { PageHeader, PrimaryButton } from '../components/ui/PageHeader'
+import { PageHeader } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { WalletDashboardSection } from '../components/wallets/WalletDashboardSection'
 import { useDashboard } from '../hooks/useDashboard'
@@ -34,19 +31,17 @@ const debtCategoryCards: { category: DebtCategory; label: string }[] = [
 ]
 
 export function DashboardPage() {
-  const { data, loading, error, refresh } = useDashboard()
+  const { data, loading, error } = useDashboard()
   const { wallets } = useWallets()
   const { items: savingsGoals, loading: savingsLoading } = useSavingsGoals()
   const { start, end } = monthRange()
   const monthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-  const [showTransferForm, setShowTransferForm] = useState(false)
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
         description={`Overview for ${monthLabel}`}
-        action={<PrimaryButton onClick={() => setShowTransferForm(true)}>Transfer money</PrimaryButton>}
       />
 
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
@@ -245,18 +240,6 @@ export function DashboardPage() {
             <WalletDashboardSection key={wallet.id} wallet={wallet} />
           ))}
         </>
-      )}
-
-      {showTransferForm && (
-        <Modal title="Transfer money" onClose={() => setShowTransferForm(false)}>
-          <TransferForm
-            onDone={() => {
-              setShowTransferForm(false)
-              void refresh()
-            }}
-            onCancel={() => setShowTransferForm(false)}
-          />
-        </Modal>
       )}
     </div>
   )

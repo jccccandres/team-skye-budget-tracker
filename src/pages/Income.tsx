@@ -3,7 +3,7 @@ import { IncomeForm } from '../components/income/IncomeForm'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { Modal } from '../components/ui/Modal'
-import { PageHeader, PrimaryButton, SecondaryButton } from '../components/ui/PageHeader'
+import { PageHeader, SecondaryButton } from '../components/ui/PageHeader'
 import { RecordCard, RecordCardList } from '../components/ui/RecordCard'
 import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
 import { useIncome } from '../hooks/useIncome'
@@ -31,11 +31,6 @@ export function IncomePage() {
     setEditing(null)
   }
 
-  function openCreate() {
-    setEditing(null)
-    setShowForm(true)
-  }
-
   function openEdit(income: Income) {
     setEditing(income)
     setShowForm(true)
@@ -59,7 +54,6 @@ export function IncomePage() {
       <PageHeader
         title="Income"
         description={`${items.length} entries · ${formatCurrency(total)} total`}
-        action={<PrimaryButton onClick={openCreate}>Add income</PrimaryButton>}
       />
 
       <WalletSwitcher wallets={wallets} activeWalletId={activeWalletId} onChange={setActiveWalletId} />

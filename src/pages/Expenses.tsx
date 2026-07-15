@@ -3,7 +3,7 @@ import { ExpenseForm } from '../components/expenses/ExpenseForm'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { Modal } from '../components/ui/Modal'
-import { PageHeader, PrimaryButton, SecondaryButton } from '../components/ui/PageHeader'
+import { PageHeader, SecondaryButton } from '../components/ui/PageHeader'
 import { RecordCard, RecordCardList } from '../components/ui/RecordCard'
 import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
 import { useExpenses } from '../hooks/useExpenses'
@@ -31,11 +31,6 @@ export function ExpensesPage() {
     setEditing(null)
   }
 
-  function openCreate() {
-    setEditing(null)
-    setShowForm(true)
-  }
-
   function openEdit(expense: Expense) {
     setEditing(expense)
     setShowForm(true)
@@ -59,7 +54,6 @@ export function ExpensesPage() {
       <PageHeader
         title="Expenses"
         description={`${items.length} entries · ${formatCurrency(total)} total`}
-        action={<PrimaryButton onClick={openCreate}>Add expense</PrimaryButton>}
       />
 
       <WalletSwitcher wallets={wallets} activeWalletId={activeWalletId} onChange={setActiveWalletId} />
