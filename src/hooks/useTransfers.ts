@@ -25,6 +25,7 @@ export function useTransfers() {
       .from('transfers')
       .select('*')
       .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (fetchError) {
       setError(fetchError.message)

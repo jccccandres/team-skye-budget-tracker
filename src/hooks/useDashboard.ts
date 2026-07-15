@@ -81,6 +81,7 @@ export function useDashboard(walletId?: string | null) {
       .from('expenses')
       .select('*')
       .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(5)
 
     incomeQuery = isWallet ? incomeQuery.eq('wallet_id', walletId) : incomeQuery.is('wallet_id', null)

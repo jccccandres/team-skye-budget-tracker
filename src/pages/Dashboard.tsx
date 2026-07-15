@@ -162,14 +162,6 @@ export function DashboardPage() {
                   value={formatCurrency(data.totalMonthlyPayments)}
                   hint="Sum of installment payments"
                 />
-                <StatCard
-                  label="Available after debts"
-                  value={formatCurrency(data.netBalance - data.totalMonthlyPayments)}
-                  hint="Net balance minus monthly debt payments"
-                  variant={
-                    data.netBalance - data.totalMonthlyPayments >= 0 ? 'positive' : 'negative'
-                  }
-                />
               </div>
 
               <div className="mt-6">
