@@ -28,7 +28,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 md:flex">
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex">
         <div className="border-b border-slate-200 px-4 py-5 dark:border-slate-800">
           <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Budget Tracker</h1>
           <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
