@@ -12,7 +12,6 @@ const navItems = [
   { to: '/debts', label: 'Debts' },
   { to: '/savings', label: 'Savings' },
   { to: '/wallets', label: 'Shared wallets' },
-  { to: '/recurring', label: 'Recurring transfers' },
 ] as const
 
 function navLinkClass({ isActive }: { isActive: boolean }) {

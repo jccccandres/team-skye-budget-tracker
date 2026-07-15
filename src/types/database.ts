@@ -148,37 +148,6 @@ export interface CreateTransferInput {
   destinationDebtId: string | null
 }
 
-export interface RecurringTransfer {
-  id: string
-  user_id: string
-  label: string
-  amount: number
-  day_of_month: number
-  note: string | null
-  source_type: TransferSourceType
-  source_wallet_id: string | null
-  destination_type: TransferDestinationType
-  destination_wallet_id: string | null
-  destination_savings_goal_id: string | null
-  destination_debt_id: string | null
-  active: boolean
-  last_applied_month: string | null
-  created_at: string
-}
-
-export interface RecurringTransferInsert {
-  label: string
-  amount: number
-  day_of_month: number
-  note: string | null
-  source_type: TransferSourceType
-  source_wallet_id: string | null
-  destination_type: TransferDestinationType
-  destination_wallet_id: string | null
-  destination_savings_goal_id: string | null
-  destination_debt_id: string | null
-}
-
 export const DEBT_CATEGORIES = [
   { value: 'other', label: 'Other' },
   { value: 'car_loan', label: 'Car loan' },

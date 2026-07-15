@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PendingRecurringTransfersBanner } from '../components/transfers/PendingRecurringTransfersBanner'
 import { TransferForm } from '../components/transfers/TransferForm'
 import { TransferHistory } from '../components/transfers/TransferHistory'
 import { ProgressBar } from '../components/savings/ProgressBar'
@@ -51,8 +50,6 @@ export function DashboardPage() {
       />
 
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
-
-      <PendingRecurringTransfersBanner onApplied={() => void refresh()} />
 
       <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Personal</h3>
 
