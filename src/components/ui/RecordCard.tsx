@@ -73,5 +73,5 @@ export function RecordCard({
 }
 
 export function RecordCardList({ children }: { children: ReactNode }) {
-  return <div className="space-y-3 md:hidden">{children}</div>
+  return <div className="space-y-3 pb-4 md:hidden">{children}</div>
 }

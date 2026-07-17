@@ -61,7 +61,7 @@ export function Layout() {
       <div className="flex min-h-screen flex-1 flex-col">
         <MobileHeader />
 
-        <main className="flex-1 overflow-auto px-4 py-4 pb-24 md:px-6 md:py-8 md:pb-8">
+        <main className="flex-1 overflow-auto px-4 py-4 pb-[calc(7rem+env(safe-area-inset-bottom))] md:px-6 md:py-8 md:pb-8">
           <div className="mx-auto max-w-5xl">
             <InviteBanner />
             <Outlet />
