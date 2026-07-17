@@ -132,6 +132,32 @@ export function DashboardPage() {
             )}
           </section>
 
+          {data.creditCards.length > 0 && (
+            <section className="mt-8">
+              <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Credit cards
+              </h3>
+              <div>
+                {data.creditCards.map((card) => (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" key={card.id}>
+                    <StatCard
+                      label={card.name}
+                      value={formatCurrency(card.billableThisMonth)}
+                      hint={`To pay this month · Due ${card.dueDay}`}
+                      variant="negative"
+                    />
+                    <StatCard
+                      label={card.name}
+                      value={formatCurrency(card.billableNextMonth)}
+                      hint={`To pay next month · Due ${card.dueDay}`}
+                      variant="negative"
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {data.hasDebts && (
             <section className="mt-8">
               <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">

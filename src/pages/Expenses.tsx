@@ -83,6 +83,9 @@ export function ExpensesPage() {
                     ? [{ label: 'Description', value: expense.description }]
                     : []),
                   ...(expense.transfer_id ? [{ label: 'Type', value: 'Transfer fee' }] : []),
+                  ...(expense.payment_source === 'credit_card'
+                    ? [{ label: 'Payment source', value: 'Credit card' }]
+                    : [{ label: 'Payment source', value: 'Wallet' }]),
                 ]}
                 onEdit={() => openEdit(expense)}
                 onDelete={() => void handleDelete(expense)}

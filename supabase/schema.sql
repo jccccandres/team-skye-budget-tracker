@@ -11,9 +11,23 @@ CREATE TYPE debt_type AS ENUM ('one_time', 'installment');
 -- Tables
 -- ---------------------------------------------------------------------------
 
+CREATE TABLE credit_cards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  limit_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  current_balance NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  cutoff_day INTEGER NOT NULL CHECK (cutoff_day BETWEEN 1 AND 31),
+  due_day INTEGER NOT NULL CHECK (due_day BETWEEN 1 AND 31),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  wallet_id UUID REFERENCES wallets (id) ON DELETE CASCADE,
+  payment_source TEXT NOT NULL DEFAULT 'wallet' CHECK (payment_source IN ('wallet', 'credit_card')),
+  credit_card_id UUID REFERENCES credit_cards (id) ON DELETE SET NULL,
   amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
   category TEXT NOT NULL,
   description TEXT,
@@ -44,6 +58,17 @@ CREATE TABLE debts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE credit_cards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  limit_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  current_balance NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  cutoff_day INTEGER NOT NULL CHECK (cutoff_day BETWEEN 1 AND 31),
+  due_day INTEGER NOT NULL CHECK (due_day BETWEEN 1 AND 31),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ---------------------------------------------------------------------------
 -- Indexes
 -- ---------------------------------------------------------------------------
@@ -64,6 +89,7 @@ CREATE INDEX debts_category_idx ON debts (category);
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE income ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE credit_cards ENABLE ROW LEVEL SECURITY;
 
 -- expenses
 CREATE POLICY "Users can view own expenses"
@@ -117,4 +143,21 @@ CREATE POLICY "Users can update own debts"
 
 CREATE POLICY "Users can delete own debts"
   ON debts FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own credit cards"
+  ON credit_cards FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own credit cards"
+  ON credit_cards FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own credit cards"
+  ON credit_cards FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own credit cards"
+  ON credit_cards FOR DELETE
   USING (auth.uid() = user_id);

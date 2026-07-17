@@ -5,12 +5,15 @@ export type InviteStatus = 'pending' | 'accepted' | 'declined'
 export type SavingsTransactionType = 'deposit' | 'withdrawal'
 export type TransferSourceType = 'personal' | 'wallet'
 export type TransferDestinationType = 'wallet' | 'savings_goal' | 'debt'
+export type ExpensePaymentSource = 'wallet' | 'credit_card'
 
 export interface Expense {
   id: string
   user_id: string
   wallet_id: string | null
   transfer_id: string | null
+  credit_card_id: string | null
+  payment_source: ExpensePaymentSource
   amount: number
   category: string
   description: string | null
@@ -113,7 +116,20 @@ export interface Debt {
   created_at: string
 }
 
-export type ExpenseInsert = Pick<Expense, 'amount' | 'category' | 'description' | 'date'>
+export interface CreditCard {
+  id: string
+  user_id: string
+  name: string
+  limit_amount: number
+  cutoff_day: number
+  due_day: number
+  created_at: string
+}
+
+export type ExpenseInsert = Pick<
+  Expense,
+  'amount' | 'category' | 'description' | 'date' | 'payment_source' | 'credit_card_id'
+>
 export type ExpenseUpdate = ExpenseInsert
 
 export type IncomeInsert = Pick<Income, 'amount' | 'source' | 'frequency' | 'date'>
@@ -124,6 +140,9 @@ export type DebtInsert = Pick<
   'name' | 'category' | 'type' | 'total_amount' | 'monthly_payment' | 'due_date' | 'remaining_balance'
 >
 export type DebtUpdate = DebtInsert
+
+export type CreditCardInsert = Pick<CreditCard, 'name' | 'limit_amount' | 'cutoff_day' | 'due_day'>
+export type CreditCardUpdate = CreditCardInsert
 
 export type WalletInsert = Pick<Wallet, 'name'>
 

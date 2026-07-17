@@ -1,13 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { monthRange } from '../lib/format'
 import { supabase } from '../lib/supabaseClient'
-import type { Debt, DebtCategory, Expense } from '../types/database'
+import type { CreditCard, Debt, DebtCategory, Expense } from '../types/database'
 import { useAuth } from './useAuth'
 import { sumTransfersInByOthers, sumTransfersOut, useTransfers } from './useTransfers'
 
 export interface DebtBreakdown {
   remaining: number
   monthly: number
+}
+
+export interface CreditCardSummary {
+  id: string
+  name: string
+  billableThisMonth: number,
+  billableNextMonth: number,
+  limit: number
+  available: number
+  cutoffDay: number
+  dueDay: number
 }
 
 export interface DashboardData {
@@ -21,6 +32,7 @@ export interface DashboardData {
   debtByCategory: Record<DebtCategory, DebtBreakdown>
   recentExpenses: Expense[]
   upcomingDebts: Debt[]
+  creditCards: CreditCardSummary[]
 }
 
 const emptyBreakdown: Record<DebtCategory, DebtBreakdown> = {
@@ -40,6 +52,7 @@ const emptyData: DashboardData = {
   debtByCategory: emptyBreakdown,
   recentExpenses: [],
   upcomingDebts: [],
+  creditCards: [],
 }
 
 function breakdownForCategory(debts: Debt[], category: DebtCategory): DebtBreakdown {
@@ -47,6 +60,16 @@ function breakdownForCategory(debts: Debt[], category: DebtCategory): DebtBreakd
   return {
     remaining: filtered.reduce((sum, debt) => sum + Number(debt.remaining_balance), 0),
     monthly: filtered.reduce((sum, debt) => sum + Number(debt.monthly_payment ?? 0), 0),
+  }
+}
+
+function cycleRangeForCard(now: Date, cutoffDay: number): { start: string; end: string } {
+  const start = new Date(now.getFullYear(), now.getMonth() - 1, cutoffDay + 1)
+  const end = new Date(now.getFullYear(), now.getMonth(), cutoffDay)
+
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
   }
 }
 
@@ -74,9 +97,10 @@ export function useDashboard(walletId?: string | null) {
 
     const { start, end } = monthRange()
     const isWallet = Boolean(walletId)
-
+// console.log(walletId)
     let incomeQuery = supabase.from('income').select('amount').gte('date', start).lte('date', end)
     let expensesQuery = supabase.from('expenses').select('*').gte('date', start).lte('date', end)
+    let creditCardExpensesQuery = supabase.from('expenses').select('*').eq('payment_source', 'credit_card')
     let recentQuery = supabase
       .from('expenses')
       .select('*')
@@ -88,23 +112,35 @@ export function useDashboard(walletId?: string | null) {
     expensesQuery = isWallet
       ? expensesQuery.eq('wallet_id', walletId)
       : expensesQuery.is('wallet_id', null)
+    // creditCardExpensesQuery = isWallet
+    //   ? creditCardExpensesQuery.eq('wallet_id', walletId)
+    //   : creditCardExpensesQuery.is('wallet_id', null)
     // Personal dashboard: show recent expenses from personal + shared wallets (RLS filters access).
     if (isWallet) {
       recentQuery = recentQuery.eq('wallet_id', walletId)
     }
 
-    const [incomeResult, expensesResult, debtsResult, recentResult] = await Promise.all([
+    const [incomeResult, expensesResult, creditCardExpensesResult, debtsResult, recentResult, creditCardsResult] = await Promise.all([
       incomeQuery,
       expensesQuery,
+      creditCardExpensesQuery,
       // Debts are personal-only, so only fetch them for the personal dashboard.
       isWallet
         ? Promise.resolve({ data: [] as Debt[], error: null })
         : supabase.from('debts').select('*'),
       recentQuery,
+      isWallet
+        ? Promise.resolve({ data: [] as CreditCard[], error: null })
+        : supabase.from('credit_cards').select('*'),
     ])
 
     const firstError =
-      incomeResult.error ?? expensesResult.error ?? debtsResult.error ?? recentResult.error
+      incomeResult.error ??
+      expensesResult.error ??
+      creditCardExpensesResult.error ??
+      debtsResult.error ??
+      recentResult.error ??
+      creditCardsResult.error
 
     if (firstError) {
       setError(firstError.message)
@@ -122,6 +158,9 @@ export function useDashboard(walletId?: string | null) {
       0,
     )
     const debts = (debtsResult.data as Debt[]) ?? []
+    const creditCards = (creditCardsResult.data as CreditCard[]) ?? []
+    const now = new Date()
+    const monthCardExpenses = (creditCardExpensesResult.data as Expense[]) ?? []
 
     const totalDebtRemaining = debts.reduce(
       (sum, debt) => sum + Number(debt.remaining_balance),
@@ -136,6 +175,54 @@ export function useDashboard(walletId?: string | null) {
       .filter((debt) => debt.due_date)
       .sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1))
       .slice(0, 5)
+
+    const groupedBillableByCard = creditCards.reduce<Record<string, { current: number; next: number }>>((acc, card) => {
+      const { start, end } = cycleRangeForCard(now, Number(card.cutoff_day))
+
+      // Next billing cycle
+      const nextStartDate = new Date(start)
+      nextStartDate.setMonth(nextStartDate.getMonth() + 1)
+      const nextEndDate = new Date(end)
+      nextEndDate.setMonth(nextEndDate.getMonth() + 1)
+      const nextStart = nextStartDate.toISOString().slice(0, 10)
+      const nextEnd = nextEndDate.toISOString().slice(0, 10)
+
+      const current = monthCardExpenses
+        .filter(
+          (expense) =>
+            expense.credit_card_id === card.id &&
+            expense.date >= start &&
+            expense.date <= end,
+        )
+        .reduce((sum, expense) => sum + Number(expense.amount), 0)
+
+      const next = monthCardExpenses
+        .filter(
+          (expense) =>
+            expense.credit_card_id === card.id &&
+            expense.date >= nextStart &&
+            expense.date <= nextEnd,
+        )
+        .reduce((sum, expense) => sum + Number(expense.amount), 0)
+
+      acc[card.id] = {
+        current,
+        next,
+      }
+
+      return acc
+    }, {})
+
+    const creditCardsSummary = creditCards.map((card) => ({
+      id: card.id,
+      name: card.name,
+      billableThisMonth: groupedBillableByCard[card.id]?.current ?? 0,
+      billableNextMonth: groupedBillableByCard[card.id]?.next ?? 0, // TODO: calculate next month billable
+      limit: Number(card.limit_amount),
+      available: Number(card.limit_amount) - (groupedBillableByCard[card.id]?.current ?? 0),
+      cutoffDay: Number(card.cutoff_day),
+      dueDay: Number(card.due_day),
+    }))
 
     setData({
       monthIncome,
@@ -152,6 +239,7 @@ export function useDashboard(walletId?: string | null) {
       },
       recentExpenses: (recentResult.data as Expense[]) ?? [],
       upcomingDebts,
+      creditCards: creditCardsSummary,
     })
     await refreshTransfers()
     setLoading(false)

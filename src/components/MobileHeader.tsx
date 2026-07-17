@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 
 const menuNavItems = [
   { to: '/debts', label: 'Debts' },
+  { to: '/credit-cards', label: 'Credit cards' },
   { to: '/savings', label: 'Savings' },
   { to: '/wallets', label: 'Shared wallets' },
 ] as const
