@@ -1,15 +1,17 @@
 import { StatCard } from '../ui/StatCard'
 import { useDashboard } from '../../hooks/useDashboard'
 import { formatCurrency } from '../../lib/format'
-import type { Wallet } from '../../types/database'
+import type { WalletWithMembers } from '../../hooks/useWallets'
 
-export function WalletDashboardSection({ wallet }: { wallet: Wallet }) {
+export function WalletDashboardSection({ wallet }: { wallet: WalletWithMembers }) {
   const { data, loading } = useDashboard(wallet.id)
+  const isShared = wallet.members.length > 1
 
   return (
     <section className="mt-8">
       <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
-        {wallet.name} (shared)
+        {wallet.name}
+        {isShared ? ' (shared)' : ''}
       </h3>
       {loading ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">Loading…</p>

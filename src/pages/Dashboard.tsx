@@ -46,12 +46,16 @@ export function DashboardPage() {
 
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
 
-      <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Personal</h3>
-
       {loading ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">Loading dashboard…</p>
       ) : (
         <>
+          {wallets.map((wallet) => (
+            <WalletDashboardSection key={wallet.id} wallet={wallet} />
+          ))}
+
+          <h3 className="mb-3 mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Personal</h3>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Income this month"
@@ -235,10 +239,6 @@ export function DashboardPage() {
             </h3>
             <TransferHistory />
           </section>
-
-          {wallets.map((wallet) => (
-            <WalletDashboardSection key={wallet.id} wallet={wallet} />
-          ))}
         </>
       )}
     </div>
