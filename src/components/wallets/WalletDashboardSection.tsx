@@ -3,8 +3,14 @@ import { useDashboard } from '../../hooks/useDashboard'
 import { formatCurrency } from '../../lib/format'
 import type { WalletWithMembers } from '../../hooks/useWallets'
 
-export function WalletDashboardSection({ wallet }: { wallet: WalletWithMembers }) {
-  const { data, loading } = useDashboard(wallet.id)
+export function WalletDashboardSection({
+  wallet,
+  referenceDate,
+}: {
+  wallet: WalletWithMembers
+  referenceDate: Date
+}) {
+  const { data, loading } = useDashboard(wallet.id, referenceDate)
   const isShared = wallet.members.length > 1
 
   return (

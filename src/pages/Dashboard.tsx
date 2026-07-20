@@ -1,9 +1,10 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TransferHistory } from '../components/transfers/TransferHistory'
 import { ProgressBar } from '../components/savings/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
-import { PageHeader } from '../components/ui/PageHeader'
+import { PageHeader, SecondaryButton } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { WalletDashboardSection } from '../components/wallets/WalletDashboardSection'
 import { useDashboard } from '../hooks/useDashboard'
@@ -31,17 +32,48 @@ const debtCategoryCards: { category: DebtCategory; label: string }[] = [
 ]
 
 export function DashboardPage() {
-  const { data, loading, error } = useDashboard()
+  // 0 = current month, -1 = last month, etc. Capped so you can't browse
+  // into the future.
+  const [monthOffset, setMonthOffset] = useState(0)
+
+  const referenceDate = useMemo(() => {
+    const d = new Date()
+    d.setDate(1)
+    d.setMonth(d.getMonth() + monthOffset)
+    return d
+  }, [monthOffset])
+
+  const { data, loading, error } = useDashboard(undefined, referenceDate)
   const { wallets } = useWallets()
   const { items: savingsGoals, loading: savingsLoading } = useSavingsGoals()
-  const { start, end } = monthRange()
-  const monthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const { start, end } = monthRange(referenceDate)
+  const monthLabel = referenceDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
         description={`Overview for ${monthLabel}`}
+        action={
+          <div className="flex items-center gap-2">
+            <SecondaryButton
+              aria-label="Previous month"
+              onClick={() => setMonthOffset((v) => v - 1)}
+            >
+              ← Prev
+            </SecondaryButton>
+            {monthOffset !== 0 && (
+              <SecondaryButton onClick={() => setMonthOffset(0)}>This month</SecondaryButton>
+            )}
+            <SecondaryButton
+              aria-label="Next month"
+              disabled={monthOffset >= 0}
+              onClick={() => setMonthOffset((v) => v + 1)}
+            >
+              Next →
+            </SecondaryButton>
+          </div>
+        }
       />
 
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
@@ -51,7 +83,7 @@ export function DashboardPage() {
       ) : (
         <>
           {wallets.map((wallet) => (
-            <WalletDashboardSection key={wallet.id} wallet={wallet} />
+            <WalletDashboardSection key={wallet.id} wallet={wallet} referenceDate={referenceDate} />
           ))}
 
           <h3 className="mb-3 mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Personal</h3>

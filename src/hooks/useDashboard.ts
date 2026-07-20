@@ -77,13 +77,19 @@ function cycleRangeForCard(now: Date, cutoffDay: number): { start: string; end: 
  * @param walletId - Pass a wallet id to get a shared wallet's income/expense
  * summary (no debts - debts remain personal-only). Omit/null for the
  * signed-in user's personal dashboard, which includes debts.
+ * @param referenceDate - Any date within the month to show. Defaults to
+ * today, so the dashboard shows the current month unless a specific month
+ * is being browsed. Debts, credit card cycles, and savings always reflect
+ * their actual current state regardless of this - only the income/expense/
+ * transfer flow and the recent expenses list are month-scoped.
  */
-export function useDashboard(walletId?: string | null) {
+export function useDashboard(walletId?: string | null, referenceDate: Date = new Date()) {
   const { user } = useAuth()
   const [data, setData] = useState<DashboardData>(emptyData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { items: transfers, loading: transfersLoading, refresh: refreshTransfers } = useTransfers()
+  const { start: rangeStart, end: rangeEnd } = monthRange(referenceDate)
 
   const refresh = useCallback(async () => {
     if (!supabase || !user) {
@@ -95,27 +101,26 @@ export function useDashboard(walletId?: string | null) {
     setLoading(true)
     setError(null)
 
-    const { start, end } = monthRange()
+    const { start, end } = monthRange(referenceDate)
     const isWallet = Boolean(walletId)
-// console.log(walletId)
+
     let incomeQuery = supabase.from('income').select('amount').gte('date', start).lte('date', end)
     let expensesQuery = supabase.from('expenses').select('*').gte('date', start).lte('date', end)
     let creditCardExpensesQuery = supabase.from('expenses').select('*').eq('payment_source', 'credit_card')
     let recentQuery = supabase
       .from('expenses')
       .select('*')
+      .gte('date', start)
+      .lte('date', end)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(5)
+      .limit(10)
 
     incomeQuery = isWallet ? incomeQuery.eq('wallet_id', walletId) : incomeQuery.is('wallet_id', null)
     expensesQuery = isWallet
       ? expensesQuery.eq('wallet_id', walletId)
       : expensesQuery.is('wallet_id', null)
-    // creditCardExpensesQuery = isWallet
-    //   ? creditCardExpensesQuery.eq('wallet_id', walletId)
-    //   : creditCardExpensesQuery.is('wallet_id', null)
-    // Personal dashboard: show recent expenses from personal + shared wallets (RLS filters access).
+    // Personal dashboard: show this month's expenses from personal + shared wallets (RLS filters access).
     if (isWallet) {
       recentQuery = recentQuery.eq('wallet_id', walletId)
     }
@@ -243,7 +248,7 @@ export function useDashboard(walletId?: string | null) {
     })
     await refreshTransfers()
     setLoading(false)
-  }, [user, walletId, refreshTransfers])
+  }, [user, walletId, refreshTransfers, rangeStart, rangeEnd])
 
   useEffect(() => {
     void refresh()
@@ -252,10 +257,9 @@ export function useDashboard(walletId?: string | null) {
   const finalData = useMemo<DashboardData>(() => {
     if (!user) return data
 
-    const { start, end } = monthRange()
-    const transferredOut = sumTransfersOut(transfers, walletId ?? null, start, end, user.id)
+    const transferredOut = sumTransfersOut(transfers, walletId ?? null, rangeStart, rangeEnd, user.id)
     const othersTransferIn = walletId
-      ? sumTransfersInByOthers(transfers, walletId, start, end, user.id)
+      ? sumTransfersInByOthers(transfers, walletId, rangeStart, rangeEnd, user.id)
       : 0
     const monthIncome = data.monthIncome - othersTransferIn
 
@@ -265,7 +269,7 @@ export function useDashboard(walletId?: string | null) {
       transferredOut,
       netBalance: monthIncome - data.monthExpenses - transferredOut,
     }
-  }, [data, transfers, walletId, user])
+  }, [data, transfers, walletId, user, rangeStart, rangeEnd])
 
   return { data: finalData, loading: loading || transfersLoading, error, refresh }
 }
