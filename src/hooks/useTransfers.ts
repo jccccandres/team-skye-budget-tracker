@@ -95,7 +95,14 @@ function inDateRange(date: string, start: string, end: string): boolean {
 /**
  * Sum of transfers moving money OUT of a given source within a date range
  * (inclusive), for subtracting from that source's net balance.
- * Pass `walletId: null` for Personal. Only counts transfers by `userId`.
+ *
+ * Pass `walletId: null` for Personal - Personal transfers can only ever be
+ * made by their own owner (there's no way for anyone else to move money
+ * out of your Personal funds), so filtering to `userId` is correct there.
+ *
+ * For a shared wallet, ANY member can transfer money out of it, and that
+ * should count against the wallet's balance regardless of which member did
+ * it - so `userId` is intentionally NOT used to filter in that case.
  */
 export function sumTransfersOut(
   transfers: Transfer[],
@@ -105,30 +112,11 @@ export function sumTransfersOut(
   userId: string,
 ): number {
   return transfers
-    .filter((t) => t.user_id === userId)
     .filter((t) => inDateRange(t.date, start, end))
     .filter((t) =>
-      walletId === null ? t.source_type === 'personal' : t.source_wallet_id === walletId,
-    )
-    .reduce((sum, t) => sum + Number(t.amount), 0)
-}
-
-/**
- * Transfers by other users into a shared wallet this month. These appear as
- * wallet income but should not count toward the logged-in user's dashboard.
- */
-export function sumTransfersInByOthers(
-  transfers: Transfer[],
-  walletId: string,
-  start: string,
-  end: string,
-  userId: string,
-): number {
-  return transfers
-    .filter((t) => t.user_id !== userId)
-    .filter((t) => inDateRange(t.date, start, end))
-    .filter(
-      (t) => t.destination_type === 'wallet' && t.destination_wallet_id === walletId,
+      walletId === null
+        ? t.source_type === 'personal' && t.user_id === userId
+        : t.source_type === 'wallet' && t.source_wallet_id === walletId,
     )
     .reduce((sum, t) => sum + Number(t.amount), 0)
 }

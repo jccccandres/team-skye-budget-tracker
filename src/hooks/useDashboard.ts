@@ -3,7 +3,7 @@ import { monthRange } from '../lib/format'
 import { supabase } from '../lib/supabaseClient'
 import type { CreditCard, Debt, DebtCategory, Expense } from '../types/database'
 import { useAuth } from './useAuth'
-import { sumTransfersInByOthers, sumTransfersOut, useTransfers } from './useTransfers'
+import { sumTransfersOut, useTransfers } from './useTransfers'
 
 export interface DebtBreakdown {
   remaining: number
@@ -258,16 +258,11 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
     if (!user) return data
 
     const transferredOut = sumTransfersOut(transfers, walletId ?? null, rangeStart, rangeEnd, user.id)
-    const othersTransferIn = walletId
-      ? sumTransfersInByOthers(transfers, walletId, rangeStart, rangeEnd, user.id)
-      : 0
-    const monthIncome = data.monthIncome - othersTransferIn
 
     return {
       ...data,
-      monthIncome,
       transferredOut,
-      netBalance: monthIncome - data.monthExpenses - transferredOut,
+      netBalance: data.monthIncome - data.monthExpenses - transferredOut,
     }
   }, [data, transfers, walletId, user, rangeStart, rangeEnd])
 
