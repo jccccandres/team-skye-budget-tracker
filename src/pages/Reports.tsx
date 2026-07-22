@@ -16,8 +16,8 @@ export function ReportsPage() {
   const { wallets } = useWallets()
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
 
-  const [preset, setPreset] = useState<ReportPreset | 'custom'>('last6')
-  const [range, setRange] = useState(() => reportPresetRange('last6'))
+  const [preset, setPreset] = useState<ReportPreset | 'custom'>('thisMonth')
+  const [range, setRange] = useState(() => reportPresetRange('thisMonth'))
   const [granularity, setGranularity] = useState<'weekly' | 'monthly'>('weekly')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 

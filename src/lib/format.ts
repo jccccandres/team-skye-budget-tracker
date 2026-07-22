@@ -18,13 +18,13 @@ export function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-export type ReportPreset = 'last3' | 'last6' | 'last12' | 'thisYear' | 'allTime'
+export type ReportPreset = 'thisMonth' | 'lastMonth' | 'thisYear' | 'lastYear' | 'allTime'
 
 export const REPORT_PRESET_LABELS: Record<ReportPreset, string> = {
-  last3: 'Last 3 months',
-  last6: 'Last 6 months',
-  last12: 'Last 12 months',
+  thisMonth: 'This month',
+  lastMonth: 'Last month',
   thisYear: 'This year',
+  lastYear: 'Last year',
   allTime: 'All time',
 }
 
@@ -34,12 +34,28 @@ export function reportPresetRange(preset: ReportPreset): { start: string; end: s
   const now = new Date()
   const end = now.toISOString().slice(0, 10)
 
+  if (preset === 'thisMonth') {
+    return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10), end }
+  }
+
+  if (preset === 'lastMonth') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+    return { start: start.toISOString().slice(0, 10), end: lastMonthEnd.toISOString().slice(0, 10) }
+  }
+
   if (preset === 'thisYear') {
     return { start: new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10), end }
   }
 
-  const monthsBack = { last3: 2, last6: 5, last12: 11, allTime: 23 }[preset]
-  const start = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1)
+  if (preset === 'lastYear') {
+    const start = new Date(now.getFullYear() - 1, 0, 1)
+    const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31)
+    return { start: start.toISOString().slice(0, 10), end: lastYearEnd.toISOString().slice(0, 10) }
+  }
+
+  // allTime
+  const start = new Date(now.getFullYear(), now.getMonth() - 23, 1)
   return { start: start.toISOString().slice(0, 10), end }
 }
 

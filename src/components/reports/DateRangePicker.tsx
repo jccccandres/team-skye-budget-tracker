@@ -11,7 +11,7 @@ interface DateRangePickerProps {
   onCustomChange: (start: string, end: string) => void
 }
 
-const presets: ReportPreset[] = ['last3', 'last6', 'last12', 'thisYear', 'allTime']
+const presets: ReportPreset[] = ['thisMonth', 'lastMonth', 'thisYear', 'lastYear', 'allTime']
 
 export function DateRangePicker({
   preset,
