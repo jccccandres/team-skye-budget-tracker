@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import {
+  discardOps,
+  enqueueOp,
+  flushOutbox,
+  pendingIds,
+  readCache,
+  useOnlineStatus,
+  writeCache,
+} from '../lib/offlineStore'
 import type { Expense, ExpenseInsert, ExpenseUpdate } from '../types/database'
 import { useAuth } from './useAuth'
 
@@ -12,25 +21,63 @@ function normalizeExpensePayload(input: ExpenseInsert, walletId?: string | null)
   }
 }
 
+function cacheKey(walletId?: string | null) {
+  return `expenses:${walletId ?? 'personal'}`
+}
+
 /**
  * @param walletId - Pass a wallet id to scope to a shared wallet, or omit/null
  * for the signed-in user's personal (wallet_id IS NULL) expenses.
+ *
+ * Offline-first: creates/edits/deletes apply immediately to local state and
+ * are cached, then queued to sync to Supabase in the background (see
+ * ../lib/offlineStore.ts). This mirrors the Grocery List module's approach
+ * so expenses can be recorded with no network connection.
  */
 export function useExpenses(walletId?: string | null) {
   const { user } = useAuth()
-  const [items, setItems] = useState<Expense[]>([])
+  const online = useOnlineStatus()
+  const key = cacheKey(walletId)
+  const [items, setItems] = useState<Expense[]>(() => readCache<Expense[]>(key, []))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState<Set<string>>(() => pendingIds('expenses'))
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+
+  const persist = useCallback(
+    (next: Expense[]) => {
+      itemsRef.current = next
+      setItems(next)
+      writeCache(key, next)
+    },
+    [key],
+  )
+
+  // Loading cached data for a different scope (e.g. switching wallets)
+  // shouldn't show last scope's items while the new ones load.
+  useEffect(() => {
+    persist(readCache<Expense[]>(key, []))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
 
   const refresh = useCallback(async () => {
-    if (!supabase || !user) {
-      setItems([])
+    if (!user) {
+      persist([])
       setLoading(false)
       return
     }
 
     setLoading(true)
     setError(null)
+
+    await flushOutbox()
+    setPending(pendingIds('expenses'))
+
+    if (!supabase || !navigator.onLine) {
+      setLoading(false)
+      return
+    }
 
     let query = supabase.from('expenses').select('*').order('date', { ascending: false })
     query = walletId ? query.eq('wallet_id', walletId) : query.is('wallet_id', null)
@@ -39,67 +86,97 @@ export function useExpenses(walletId?: string | null) {
 
     if (fetchError) {
       setError(fetchError.message)
-      setItems([])
     } else {
-      setItems((data as Expense[]) ?? [])
+      const server = (data as Expense[]) ?? []
+      const stillPending = pendingIds('expenses')
+      // Keep any local expense that hasn't synced yet so we don't briefly
+      // "lose" something the user just created while offline.
+      const unsynced = itemsRef.current.filter(
+        (i) => stillPending.has(i.id) && !server.some((s) => s.id === i.id),
+      )
+      persist([...server, ...unsynced])
+      setPending(stillPending)
     }
 
     setLoading(false)
-  }, [user, walletId])
+  }, [user, walletId, persist])
 
   useEffect(() => {
     void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh])
+
+  useEffect(() => {
+    if (online) void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online])
 
   const create = useCallback(
     async (input: ExpenseInsert) => {
-      if (!supabase || !user) return { error: 'Not authenticated.' }
+      if (!user) return { error: 'Not authenticated.' }
 
       const payload = normalizeExpensePayload(input, walletId)
+      const row: Expense = {
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        transfer_id: null,
+        created_at: new Date().toISOString(),
+        ...payload,
+      }
 
-      const { error: insertError } = await supabase
-        .from('expenses')
-        .insert({
-          ...payload,
-          user_id: user.id,
-        })
+      persist([row, ...itemsRef.current])
+      setPending((prev) => new Set(prev).add(row.id))
+      enqueueOp({ id: row.id, table: 'expenses', action: 'upsert', payload: row })
+      void flushOutbox().then(() => setPending(pendingIds('expenses')))
 
-      if (insertError) return { error: insertError.message }
-
-      await refresh()
       return { error: null }
     },
-    [user, walletId, refresh],
+    [user, walletId, persist],
   )
 
   const update = useCallback(
     async (id: string, input: ExpenseUpdate) => {
-      if (!supabase || !user) return { error: 'Not authenticated.' }
+      if (!user) return { error: 'Not authenticated.' }
+
+      const existing = itemsRef.current.find((i) => i.id === id)
+      if (!existing) return { error: 'Expense not found.' }
 
       const payload = normalizeExpensePayload(input, walletId)
-      const { error: updateError } = await supabase.from('expenses').update(payload).eq('id', id)
+      const row: Expense = { ...existing, ...payload }
+      persist(itemsRef.current.map((i) => (i.id === id ? row : i)))
+      setPending((prev) => new Set(prev).add(id))
+      enqueueOp({ id, table: 'expenses', action: 'upsert', payload: row })
+      void flushOutbox().then(() => setPending(pendingIds('expenses')))
 
-      if (updateError) return { error: updateError.message }
-
-      await refresh()
       return { error: null }
     },
-    [user, walletId, refresh],
+    [user, walletId, persist],
   )
 
   const remove = useCallback(
     async (id: string) => {
-      if (!supabase || !user) return { error: 'Not authenticated.' }
+      if (!user) return { error: 'Not authenticated.' }
 
-      const { error: deleteError } = await supabase.from('expenses').delete().eq('id', id)
+      const wasPending = pending.has(id)
+      persist(itemsRef.current.filter((i) => i.id !== id))
+      setPending((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
 
-      if (deleteError) return { error: deleteError.message }
+      if (wasPending) {
+        // Never reached the server - just drop the queued create/update.
+        discardOps('expenses', id)
+      } else {
+        enqueueOp({ id, table: 'expenses', action: 'delete', payload: { id } })
+        void flushOutbox()
+      }
 
-      await refresh()
       return { error: null }
     },
-    [user, refresh],
+    [user, pending, persist],
   )
 
-  return { items, loading, error, create, update, remove, refresh }
+  return { items, loading, error, online, pendingIds: pending, create, update, remove, refresh }
 }

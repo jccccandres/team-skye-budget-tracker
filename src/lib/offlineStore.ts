@@ -1,24 +1,27 @@
-// Lightweight offline-first persistence for the Grocery List module.
+// Lightweight offline-first persistence, shared across modules that need to
+// keep working with no network (Grocery Lists, Expenses, ...).
 //
-// Design: every row (list/item) gets a client-generated UUID up front, so
-// creating things while offline never needs an id swap once it reaches the
-// server - we can just `upsert` the same row later. Local state is mirrored
-// into localStorage (instant reads on next load, works with no network at
-// all), and any write that couldn't reach Supabase is queued in an "outbox"
-// that gets flushed in order whenever the app is online again.
+// Design: every row gets a client-generated UUID up front, so creating
+// things while offline never needs an id swap once it reaches the server -
+// we can just `upsert` the same row later. Local state is mirrored into
+// localStorage (instant reads on next load, works with no network at all),
+// and any write that couldn't reach Supabase is queued in an "outbox" that
+// gets flushed in order whenever the app is online again.
 //
 // This intentionally avoids IndexedDB/service-worker background sync: the
-// data volume here is tiny (text list items) and localStorage is
-// synchronous and simple, which keeps the sync logic easy to reason about.
+// data volume here is small and localStorage is synchronous and simple,
+// which keeps the sync logic easy to reason about.
 
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 
-const PREFIX = 'budget-tracker:grocery:'
+const PREFIX = 'budget-tracker:offline:'
+
+export type OfflineTable = 'grocery_lists' | 'grocery_items' | 'expenses'
 
 export interface OutboxOp {
   id: string
-  table: 'grocery_lists' | 'grocery_items'
+  table: OfflineTable
   action: 'upsert' | 'delete'
   payload: object
   createdAt: number
@@ -100,7 +103,7 @@ export async function flushOutbox(): Promise<void> {
           : await supabase.from(op.table).upsert(op.payload)
 
       if (error) {
-        console.error(`Grocery sync failed for ${op.table} (${op.action}):`, error.message)
+        console.error(`Offline sync failed for ${op.table} (${op.action}):`, error.message)
         setOutbox(ops.slice(i))
         return
       }

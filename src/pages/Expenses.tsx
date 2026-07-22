@@ -22,7 +22,8 @@ import type { Expense } from '../types/database'
 export function ExpensesPage() {
   const { wallets } = useWallets()
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
-  const { items, loading, error, create, update, remove } = useExpenses(activeWalletId)
+  const { items, loading, error, online, pendingIds, create, update, remove } =
+    useExpenses(activeWalletId)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
 
@@ -53,7 +54,11 @@ export function ExpensesPage() {
     <div>
       <PageHeader
         title="Expenses"
-        description={`${items.length} entries · ${formatCurrency(total)} total`}
+        description={
+          online
+            ? `${items.length} entries · ${formatCurrency(total)} total`
+            : `${items.length} entries · ${formatCurrency(total)} total · Offline — changes will sync when you're back online`
+        }
       />
 
       <WalletSwitcher wallets={wallets} activeWalletId={activeWalletId} onChange={setActiveWalletId} />
@@ -86,6 +91,7 @@ export function ExpensesPage() {
                   ...(expense.payment_source === 'credit_card'
                     ? [{ label: 'Payment source', value: 'Credit card' }]
                     : [{ label: 'Payment source', value: 'Wallet' }]),
+                  ...(pendingIds.has(expense.id) ? [{ label: 'Sync', value: 'Not synced yet' }] : []),
                 ]}
                 onEdit={() => openEdit(expense)}
                 onDelete={() => void handleDelete(expense)}
@@ -112,6 +118,11 @@ export function ExpensesPage() {
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100">
                       {expense.category}
+                      {pendingIds.has(expense.id) ? (
+                        <span className="ml-2 text-xs font-normal text-slate-400 dark:text-slate-500">
+                          (not synced)
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
                       {expense.description || '—'}

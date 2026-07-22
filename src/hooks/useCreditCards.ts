@@ -1,17 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { readCache, writeCache } from '../lib/offlineStore'
 import type { CreditCard, CreditCardInsert, CreditCardUpdate } from '../types/database'
 import { useAuth } from './useAuth'
 
+const CACHE_KEY = 'credit_cards'
+
 export function useCreditCards() {
   const { user } = useAuth()
-  const [items, setItems] = useState<CreditCard[]>([])
+  const [items, setItems] = useState<CreditCard[]>(() => readCache<CreditCard[]>(CACHE_KEY, []))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Read-only cache so the credit card list (e.g. for the Expense form's
+  // "pay with card" dropdown) still has options while offline. Credit card
+  // management itself (create/update/delete) requires a connection.
   const refresh = useCallback(async () => {
-    if (!supabase || !user) {
+    if (!user) {
       setItems([])
+      writeCache(CACHE_KEY, [])
+      setLoading(false)
+      return
+    }
+
+    if (!supabase || !navigator.onLine) {
       setLoading(false)
       return
     }
@@ -27,9 +39,10 @@ export function useCreditCards() {
 
     if (fetchError) {
       setError(fetchError.message)
-      setItems([])
     } else {
-      setItems((data as CreditCard[]) ?? [])
+      const next = (data as CreditCard[]) ?? []
+      setItems(next)
+      writeCache(CACHE_KEY, next)
     }
 
     setLoading(false)
