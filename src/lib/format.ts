@@ -14,6 +14,15 @@ export function formatDate(date: string): string {
   )
 }
 
+export function formatMonthDay(date: string): string {
+  const [year, month, day] = date.split('-')
+  if (!year || !month || !day) return date
+  return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString(
+    'en-US',
+    { month: 'short', day: 'numeric' },
+  )
+}
+
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }

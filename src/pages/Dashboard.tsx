@@ -11,7 +11,7 @@ import { useDashboard } from '../hooks/useDashboard'
 import { useSavingsGoals } from '../hooks/useSavings'
 import { useWallets } from '../hooks/useWallets'
 import { listPanel } from '../lib/classes'
-import { formatCurrency, formatDate, monthRange } from '../lib/format'
+import { formatCurrency, formatDate, formatMonthDay, monthRange } from '../lib/format'
 import { debtCategoryLabel, type DebtCategory, type Wallet } from '../types/database'
 import type { DebtBreakdown } from '../hooks/useDashboard'
 
@@ -169,21 +169,26 @@ export function DashboardPage() {
               <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Credit cards
               </h3>
-              <div>
+              <div className="space-y-4">
                 {data.creditCards.map((card) => (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" key={card.id}>
-                    <StatCard
-                      label={card.name}
-                      value={formatCurrency(card.billableThisMonth)}
-                      hint={`To pay this month · Due ${card.dueDay}`}
-                      variant="negative"
-                    />
-                    <StatCard
-                      label={card.name}
-                      value={formatCurrency(card.billableNextMonth)}
-                      hint={`To pay next month · Due ${card.dueDay}`}
-                      variant="negative"
-                    />
+                  <div key={card.id}>
+                    <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {card.name}
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <StatCard
+                        label="This month's bill"
+                        value={formatCurrency(card.billableThisMonth)}
+                        hint={`Due ${formatMonthDay(card.dueDateThisMonth)}`}
+                        variant="negative"
+                      />
+                      <StatCard
+                        label="Next month's bill"
+                        value={formatCurrency(card.billableNextMonth)}
+                        hint={`Due ${formatMonthDay(card.dueDateNextMonth)}`}
+                        variant="negative"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

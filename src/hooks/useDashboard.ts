@@ -19,6 +19,8 @@ export interface CreditCardSummary {
   available: number
   cutoffDay: number
   dueDay: number
+  dueDateThisMonth: string
+  dueDateNextMonth: string
 }
 
 export interface DashboardData {
@@ -61,6 +63,15 @@ function breakdownForCategory(debts: Debt[], category: DebtCategory): DebtBreakd
     remaining: filtered.reduce((sum, debt) => sum + Number(debt.remaining_balance), 0),
     monthly: filtered.reduce((sum, debt) => sum + Number(debt.monthly_payment ?? 0), 0),
   }
+}
+
+function dueDateForCycle(cutoffEnd: Date, dueDay: number): Date {
+  // If the due day falls on/before the cutoff day, the payment is due the
+  // month after the cycle closes (the common case - e.g. cutoff the 21st,
+  // due the 7th of the following month). Otherwise the due date falls
+  // within the same month the cycle closes.
+  const monthOffset = dueDay <= cutoffEnd.getDate() ? 1 : 0
+  return new Date(cutoffEnd.getFullYear(), cutoffEnd.getMonth() + monthOffset, dueDay)
 }
 
 function cycleRangeForCard(now: Date, cutoffDay: number): { start: string; end: string } {
@@ -181,7 +192,9 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
       .sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1))
       .slice(0, 5)
 
-    const groupedBillableByCard = creditCards.reduce<Record<string, { current: number; next: number }>>((acc, card) => {
+    const groupedBillableByCard = creditCards.reduce<
+      Record<string, { current: number; next: number; dueThisMonth: string; dueNextMonth: string }>
+    >((acc, card) => {
       const { start, end } = cycleRangeForCard(now, Number(card.cutoff_day))
 
       // Next billing cycle
@@ -213,6 +226,8 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
       acc[card.id] = {
         current,
         next,
+        dueThisMonth: dueDateForCycle(new Date(end), Number(card.due_day)).toISOString().slice(0, 10),
+        dueNextMonth: dueDateForCycle(nextEndDate, Number(card.due_day)).toISOString().slice(0, 10),
       }
 
       return acc
@@ -227,6 +242,8 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
       available: Number(card.limit_amount) - (groupedBillableByCard[card.id]?.current ?? 0),
       cutoffDay: Number(card.cutoff_day),
       dueDay: Number(card.due_day),
+      dueDateThisMonth: groupedBillableByCard[card.id]?.dueThisMonth ?? '',
+      dueDateNextMonth: groupedBillableByCard[card.id]?.dueNextMonth ?? '',
     }))
 
     setData({
