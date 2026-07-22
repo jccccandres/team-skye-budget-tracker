@@ -4,7 +4,8 @@ import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../hooks/useAuth'
 
 const menuNavItems = [
-  { to: '/transactions', label: 'Transactions' },
+  { to: '/expenses', label: 'Expenses' },
+  { to: '/income', label: 'Income' },
   { to: '/debts', label: 'Debts' },
   { to: '/credit-cards', label: 'Credit cards' },
   { to: '/savings', label: 'Savings' },
