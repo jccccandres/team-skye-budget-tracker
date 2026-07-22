@@ -180,6 +180,7 @@ export function debtCategoryLabel(category: DebtCategory): string {
 export const EXPENSE_CATEGORIES = [
   'Housing',
   'Food',
+  'Grocery',
   'Transport',
   'Utilities',
   'Healthcare',

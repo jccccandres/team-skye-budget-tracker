@@ -77,11 +77,7 @@ export function useExpenses(walletId?: string | null) {
       if (!supabase || !user) return { error: 'Not authenticated.' }
 
       const payload = normalizeExpensePayload(input, walletId)
-      const { error: updateError } = await supabase
-        .from('expenses')
-        .update(payload)
-        .eq('id', id)
-        .eq('user_id', user.id)
+      const { error: updateError } = await supabase.from('expenses').update(payload).eq('id', id)
 
       if (updateError) return { error: updateError.message }
 
