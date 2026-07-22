@@ -1,4 +1,4 @@
-import type { MonthlyTrendPoint } from '../../hooks/useReportsData'
+import type { TrendPoint } from '../../hooks/useReportsData'
 
 function compactCurrency(amount: number): string {
   if (amount >= 1_000_000) return `₱${(amount / 1_000_000).toFixed(1)}M`
@@ -6,10 +6,16 @@ function compactCurrency(amount: number): string {
   return `₱${Math.round(amount)}`
 }
 
-function monthLabel(monthKey: string): string {
-  const [year, month] = monthKey.split('-')
-  const date = new Date(Number(year), Number(month) - 1, 1)
-  return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+function periodLabel(period: string, granularity: 'weekly' | 'monthly'): string {
+  if (granularity === 'monthly') {
+    const [year, month] = period.split('-')
+    const date = new Date(Number(year), Number(month) - 1, 1)
+    return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+  }
+  // Weekly: period is the Monday starting that week.
+  const [year, month, day] = period.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 const WIDTH = 600
@@ -19,7 +25,13 @@ const PADDING_BOTTOM = 28
 const PADDING_TOP = 12
 const PADDING_RIGHT = 12
 
-export function TrendChart({ points }: { points: MonthlyTrendPoint[] }) {
+export function TrendChart({
+  points,
+  granularity,
+}: {
+  points: TrendPoint[]
+  granularity: 'weekly' | 'monthly'
+}) {
   if (points.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">No data in this date range.</p>
@@ -88,13 +100,13 @@ export function TrendChart({ points }: { points: MonthlyTrendPoint[] }) {
         {points.map((p, i) =>
           i % labelStride === 0 ? (
             <text
-              key={p.month}
+              key={p.period}
               x={x(i)}
               y={HEIGHT - 8}
               textAnchor="middle"
               className="fill-slate-400 text-[9px] dark:fill-slate-500"
             >
-              {monthLabel(p.month)}
+              {periodLabel(p.period, granularity)}
             </text>
           ) : null,
         )}
@@ -117,7 +129,7 @@ export function TrendChart({ points }: { points: MonthlyTrendPoint[] }) {
         />
 
         {points.map((p, i) => (
-          <g key={p.month}>
+          <g key={p.period}>
             <circle cx={x(i)} cy={y(p.income)} r={2.5} className="fill-emerald-500" />
             <circle cx={x(i)} cy={y(p.expenses)} r={2.5} className="fill-red-500" />
           </g>

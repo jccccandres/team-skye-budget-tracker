@@ -7,29 +7,53 @@ export interface CategoryTotal {
   total: number
 }
 
-export interface MonthlyTrendPoint {
-  /** YYYY-MM */
-  month: string
+export interface CategoryExpense {
+  id: string
+  amount: number
+  description: string | null
+  date: string
+}
+
+export interface TrendPoint {
+  /** YYYY-MM for monthly, or the Monday (YYYY-MM-DD) that starts the week
+   * for weekly. */
+  period: string
   income: number
   expenses: number
 }
 
 interface ReportsData {
   categoryTotals: CategoryTotal[]
-  monthlyTrend: MonthlyTrendPoint[]
+  /** Raw expense rows per category, for the "click a category" detail list -
+   * kept client-side rather than re-querying on click. */
+  expensesByCategory: Map<string, CategoryExpense[]>
+  monthlyTrend: TrendPoint[]
+  weeklyTrend: TrendPoint[]
   totalIncome: number
   totalExpenses: number
 }
 
 const emptyData: ReportsData = {
   categoryTotals: [],
+  expensesByCategory: new Map(),
   monthlyTrend: [],
+  weeklyTrend: [],
   totalIncome: 0,
   totalExpenses: 0,
 }
 
 function monthKey(date: string): string {
   return date.slice(0, 7)
+}
+
+/** The Monday (YYYY-MM-DD) that starts the week containing this date. */
+function weekKey(date: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  const day = dt.getDay() // 0 = Sunday
+  const diffToMonday = day === 0 ? -6 : 1 - day
+  dt.setDate(dt.getDate() + diffToMonday)
+  return dt.toISOString().slice(0, 10)
 }
 
 /** Every YYYY-MM between start and end (inclusive), so months with zero
@@ -45,6 +69,48 @@ function monthKeysInRange(start: string, end: string): string[] {
   }
 
   return keys
+}
+
+/** Every Monday (YYYY-MM-DD) between start and end (inclusive), so weeks
+ * with zero activity still show up instead of vanishing. */
+function weekKeysInRange(start: string, end: string): string[] {
+  const keys: string[] = []
+  const cursor = new Date(weekKey(start))
+  const endDate = new Date(weekKey(end))
+
+  while (cursor <= endDate) {
+    keys.push(cursor.toISOString().slice(0, 10))
+    cursor.setDate(cursor.getDate() + 7)
+  }
+
+  return keys
+}
+
+function buildTrend(
+  keysInRange: string[],
+  keyFn: (date: string) => string,
+  incomeRows: { amount: number; date: string }[],
+  expenseRows: { amount: number; date: string }[],
+): TrendPoint[] {
+  const trendMap = new Map<string, { income: number; expenses: number }>()
+  for (const key of keysInRange) {
+    trendMap.set(key, { income: 0, expenses: 0 })
+  }
+  for (const row of incomeRows) {
+    const key = keyFn(row.date)
+    const bucket = trendMap.get(key) ?? { income: 0, expenses: 0 }
+    bucket.income += Number(row.amount)
+    trendMap.set(key, bucket)
+  }
+  for (const row of expenseRows) {
+    const key = keyFn(row.date)
+    const bucket = trendMap.get(key) ?? { income: 0, expenses: 0 }
+    bucket.expenses += Number(row.amount)
+    trendMap.set(key, bucket)
+  }
+  return [...trendMap.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([period, totals]) => ({ period, ...totals }))
 }
 
 /**
@@ -69,7 +135,7 @@ export function useReportsData(walletId: string | null, start: string, end: stri
 
     let expensesQuery = supabase
       .from('expenses')
-      .select('amount, category, date')
+      .select('id, amount, category, description, date')
       .gte('date', start)
       .lte('date', end)
     let incomeQuery = supabase
@@ -99,36 +165,28 @@ export function useReportsData(walletId: string | null, start: string, end: stri
     const incomeRows = incomeResult.data ?? []
 
     const categoryMap = new Map<string, number>()
+    const expensesByCategory = new Map<string, CategoryExpense[]>()
     for (const row of expenseRows) {
       categoryMap.set(row.category, (categoryMap.get(row.category) ?? 0) + Number(row.amount))
+      const list = expensesByCategory.get(row.category) ?? []
+      list.push({ id: row.id, amount: Number(row.amount), description: row.description, date: row.date })
+      expensesByCategory.set(row.category, list)
+    }
+    for (const list of expensesByCategory.values()) {
+      list.sort((a, b) => (a.date < b.date ? 1 : -1))
     }
     const categoryTotals = [...categoryMap.entries()]
       .map(([category, total]) => ({ category, total }))
       .sort((a, b) => b.total - a.total)
 
-    const trendMap = new Map<string, { income: number; expenses: number }>()
-    for (const key of monthKeysInRange(start, end)) {
-      trendMap.set(key, { income: 0, expenses: 0 })
-    }
-    for (const row of incomeRows) {
-      const key = monthKey(row.date)
-      const bucket = trendMap.get(key) ?? { income: 0, expenses: 0 }
-      bucket.income += Number(row.amount)
-      trendMap.set(key, bucket)
-    }
-    for (const row of expenseRows) {
-      const key = monthKey(row.date)
-      const bucket = trendMap.get(key) ?? { income: 0, expenses: 0 }
-      bucket.expenses += Number(row.amount)
-      trendMap.set(key, bucket)
-    }
-    const monthlyTrend = [...trendMap.entries()]
-      .sort(([a], [b]) => (a < b ? -1 : 1))
-      .map(([month, totals]) => ({ month, ...totals }))
+    const monthlyTrend = buildTrend(monthKeysInRange(start, end), monthKey, incomeRows, expenseRows)
+    const weeklyTrend = buildTrend(weekKeysInRange(start, end), weekKey, incomeRows, expenseRows)
 
     setData({
       categoryTotals,
+      expensesByCategory,
       monthlyTrend,
+      weeklyTrend,
       totalIncome: incomeRows.reduce((sum, r) => sum + Number(r.amount), 0),
       totalExpenses: expenseRows.reduce((sum, r) => sum + Number(r.amount), 0),
     })
