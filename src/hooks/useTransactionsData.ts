@@ -44,10 +44,18 @@ const emptyData: TransactionsData = {
 export function useTransactionsData(walletId: string | null, referenceDate: Date = new Date()) {
   const { user } = useAuth()
   const [rawIncome, setRawIncome] = useState<
-    { id: string; amount: number; source: string; date: string; created_at: string }[]
+    { id: string; amount: number; source: string; date: string; created_at: string; transfer_id: string | null }[]
   >([])
   const [rawExpenses, setRawExpenses] = useState<
-    { id: string; amount: number; category: string; description: string | null; date: string; created_at: string }[]
+    {
+      id: string
+      amount: number
+      category: string
+      description: string | null
+      date: string
+      created_at: string
+      transfer_id: string | null
+    }[]
   >([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -66,21 +74,21 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
     setLoading(true)
     setError(null)
 
-    // Transfer-linked income/expense rows are excluded here - they're
-    // already represented by their originating Transfer row, so showing
-    // both would double-list the same money movement.
+    // Transfer-linked income/expense rows are fetched too (matching the
+    // dashboard's totals), but they're excluded from the displayed
+    // transaction list below - they're already represented there by their
+    // originating Transfer row, so showing both would double-list the same
+    // money movement.
     let incomeQuery = supabase
       .from('income')
-      .select('id, amount, source, date, created_at')
+      .select('id, amount, source, date, created_at, transfer_id')
       .gte('date', start)
       .lte('date', end)
-      .is('transfer_id', null)
     let expensesQuery = supabase
       .from('expenses')
-      .select('id, amount, category, description, date, created_at')
+      .select('id, amount, category, description, date, created_at, transfer_id')
       .gte('date', start)
       .lte('date', end)
-      .is('transfer_id', null)
 
     incomeQuery = walletId ? incomeQuery.eq('wallet_id', walletId) : incomeQuery.is('wallet_id', null)
     expensesQuery = walletId
@@ -127,22 +135,26 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
     })
 
     const transactions: CombinedTransaction[] = [
-      ...rawIncome.map((r) => ({
-        type: 'income' as const,
-        id: r.id,
-        date: r.date,
-        createdAt: r.created_at,
-        amount: Number(r.amount),
-        label: r.source,
-      })),
-      ...rawExpenses.map((r) => ({
-        type: 'expense' as const,
-        id: r.id,
-        date: r.date,
-        createdAt: r.created_at,
-        amount: Number(r.amount),
-        label: r.description ? `${r.category} · ${r.description}` : r.category,
-      })),
+      ...rawIncome
+        .filter((r) => !r.transfer_id)
+        .map((r) => ({
+          type: 'income' as const,
+          id: r.id,
+          date: r.date,
+          createdAt: r.created_at,
+          amount: Number(r.amount),
+          label: r.source,
+        })),
+      ...rawExpenses
+        .filter((r) => !r.transfer_id)
+        .map((r) => ({
+          type: 'expense' as const,
+          id: r.id,
+          date: r.date,
+          createdAt: r.created_at,
+          amount: Number(r.amount),
+          label: r.description ? `${r.category} · ${r.description}` : r.category,
+        })),
       ...relevantTransfers.map((t) => {
         const direction: 'in' | 'out' =
           walletId !== null && t.destination_type === 'wallet' && t.destination_wallet_id === walletId
