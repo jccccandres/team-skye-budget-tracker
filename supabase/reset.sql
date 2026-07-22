@@ -4,6 +4,8 @@
 -- Drops tables first (removes RLS policies), then functions, then types.
 
 -- 1. Tables (CASCADE removes policies, triggers, and FK dependencies)
+DROP TABLE IF EXISTS grocery_items CASCADE;
+DROP TABLE IF EXISTS grocery_lists CASCADE;
 DROP TABLE IF EXISTS transfers CASCADE;
 DROP TABLE IF EXISTS savings_transactions CASCADE;
 DROP TABLE IF EXISTS savings_goals CASCADE;

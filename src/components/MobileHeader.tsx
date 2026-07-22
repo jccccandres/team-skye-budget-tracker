@@ -11,6 +11,7 @@ const menuNavItems = [
   { to: '/savings', label: 'Savings' },
   { to: '/reports', label: 'Reports' },
   { to: '/wallets', label: 'Shared wallets' },
+  { to: '/grocery', label: 'Grocery lists' },
 ] as const
 
 function menuNavClass({ isActive }: { isActive: boolean }) {

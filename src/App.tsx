@@ -17,6 +17,8 @@ import { WalletsPage } from './pages/Wallets'
 import { CreditCardsPage } from './pages/CreditCards'
 import { ReportsPage } from './pages/Reports'
 import { TransactionsPage } from './pages/Transactions'
+import { GroceryListsPage } from './pages/GroceryLists'
+import { GroceryListDetailPage } from './pages/GroceryListDetail'
 
 export default function App() {
   return (
@@ -42,6 +44,8 @@ export default function App() {
                   <Route path="/savings" element={<SavingsPage />} />
                   <Route path="/reports" element={<ReportsPage />} />
                   <Route path="/wallets" element={<WalletsPage />} />
+                  <Route path="/grocery" element={<GroceryListsPage />} />
+                  <Route path="/grocery/:listId" element={<GroceryListDetailPage />} />
                   <Route path="/change-password" element={<ChangePasswordPage />} />
                 </Route>
               </Route>

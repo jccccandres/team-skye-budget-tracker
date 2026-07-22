@@ -116,6 +116,25 @@ export interface Debt {
   created_at: string
 }
 
+// Grocery lists are a standalone module: not linked to wallets, expenses,
+// or transfers. `id` is generated client-side (UUID) so lists/items can be
+// created while offline and synced later without id collisions.
+export interface GroceryList {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+}
+
+export interface GroceryItem {
+  id: string
+  list_id: string
+  name: string
+  checked: boolean
+  price: number | null
+  created_at: string
+}
+
 export interface CreditCard {
   id: string
   user_id: string
@@ -153,6 +172,12 @@ export type SavingsTransactionInsert = Pick<
   SavingsTransaction,
   'amount' | 'type' | 'date' | 'note'
 >
+
+export type GroceryListInsert = Pick<GroceryList, 'id' | 'name'>
+export type GroceryListUpdate = Pick<GroceryList, 'name'>
+
+export type GroceryItemInsert = Pick<GroceryItem, 'id' | 'list_id' | 'name'>
+export type GroceryItemUpdate = Partial<Pick<GroceryItem, 'name' | 'checked' | 'price'>>
 
 export interface CreateTransferInput {
   amount: number
