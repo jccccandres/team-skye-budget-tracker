@@ -3,7 +3,7 @@ import { monthRange } from '../lib/format'
 import { supabase } from '../lib/supabaseClient'
 import type { CreditCard, Debt, DebtCategory, Expense } from '../types/database'
 import { useAuth } from './useAuth'
-import { sumTransfersOut, useTransfers } from './useTransfers'
+import { useWalletPeriodFinancials } from './useWalletPeriodFinancials'
 
 export interface DebtBreakdown {
   remaining: number
@@ -37,17 +37,15 @@ export interface DashboardData {
   creditCards: CreditCardSummary[]
 }
 
+type DashboardRestData = Omit<DashboardData, 'monthIncome' | 'monthExpenses' | 'transferredOut' | 'netBalance'>
+
 const emptyBreakdown: Record<DebtCategory, DebtBreakdown> = {
   other: { remaining: 0, monthly: 0 },
   car_loan: { remaining: 0, monthly: 0 },
   house_loan: { remaining: 0, monthly: 0 },
 }
 
-const emptyData: DashboardData = {
-  monthIncome: 0,
-  monthExpenses: 0,
-  transferredOut: 0,
-  netBalance: 0,
+const emptyRestData: DashboardRestData = {
   hasDebts: false,
   totalDebtRemaining: 0,
   totalMonthlyPayments: 0,
@@ -96,15 +94,21 @@ function cycleRangeForCard(now: Date, cutoffDay: number): { start: string; end: 
  */
 export function useDashboard(walletId?: string | null, referenceDate: Date = new Date()) {
   const { user } = useAuth()
-  const [data, setData] = useState<DashboardData>(emptyData)
+  const [data, setData] = useState<DashboardRestData>(emptyRestData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { items: transfers, loading: transfersLoading, refresh: refreshTransfers } = useTransfers()
   const { start: rangeStart, end: rangeEnd } = monthRange(referenceDate)
+
+  const {
+    data: financials,
+    loading: financialsLoading,
+    error: financialsError,
+    refresh: refreshFinancials,
+  } = useWalletPeriodFinancials(walletId, rangeStart, rangeEnd)
 
   const refresh = useCallback(async () => {
     if (!supabase || !user) {
-      setData(emptyData)
+      setData(emptyRestData)
       setLoading(false)
       return
     }
@@ -115,8 +119,6 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
     const { start, end } = monthRange(referenceDate)
     const isWallet = Boolean(walletId)
 
-    let incomeQuery = supabase.from('income').select('amount').gte('date', start).lte('date', end)
-    let expensesQuery = supabase.from('expenses').select('*').gte('date', start).lte('date', end)
     let creditCardExpensesQuery = supabase.from('expenses').select('*').eq('payment_source', 'credit_card')
     let recentQuery = supabase
       .from('expenses')
@@ -127,18 +129,12 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
       .order('created_at', { ascending: false })
       .limit(10)
 
-    incomeQuery = isWallet ? incomeQuery.eq('wallet_id', walletId) : incomeQuery.is('wallet_id', null)
-    expensesQuery = isWallet
-      ? expensesQuery.eq('wallet_id', walletId)
-      : expensesQuery.is('wallet_id', null)
     // Personal dashboard: show this month's expenses from personal + shared wallets (RLS filters access).
     if (isWallet) {
       recentQuery = recentQuery.eq('wallet_id', walletId)
     }
 
-    const [incomeResult, expensesResult, creditCardExpensesResult, debtsResult, recentResult, creditCardsResult] = await Promise.all([
-      incomeQuery,
-      expensesQuery,
+    const [creditCardExpensesResult, debtsResult, recentResult, creditCardsResult] = await Promise.all([
       creditCardExpensesQuery,
       // Debts are personal-only, so only fetch them for the personal dashboard.
       isWallet
@@ -151,28 +147,15 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
     ])
 
     const firstError =
-      incomeResult.error ??
-      expensesResult.error ??
-      creditCardExpensesResult.error ??
-      debtsResult.error ??
-      recentResult.error ??
-      creditCardsResult.error
+      creditCardExpensesResult.error ?? debtsResult.error ?? recentResult.error ?? creditCardsResult.error
 
     if (firstError) {
       setError(firstError.message)
-      setData(emptyData)
+      setData(emptyRestData)
       setLoading(false)
       return
     }
 
-    const monthIncome = (incomeResult.data ?? []).reduce(
-      (sum, row) => sum + Number(row.amount),
-      0,
-    )
-    const monthExpenses = (expensesResult.data ?? []).reduce(
-      (sum, row) => sum + Number(row.amount),
-      0,
-    )
     const debts = (debtsResult.data as Debt[]) ?? []
     const creditCards = (creditCardsResult.data as CreditCard[]) ?? []
     const now = new Date()
@@ -247,10 +230,6 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
     }))
 
     setData({
-      monthIncome,
-      monthExpenses,
-      transferredOut: 0,
-      netBalance: monthIncome - monthExpenses,
       hasDebts: debts.length > 0,
       totalDebtRemaining,
       totalMonthlyPayments,
@@ -263,25 +242,29 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
       upcomingDebts,
       creditCards: creditCardsSummary,
     })
-    await refreshTransfers()
+    await refreshFinancials()
     setLoading(false)
-  }, [user, walletId, refreshTransfers, rangeStart, rangeEnd])
+  }, [user, walletId, referenceDate, refreshFinancials])
 
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  const finalData = useMemo<DashboardData>(() => {
-    if (!user) return data
-
-    const transferredOut = sumTransfersOut(transfers, walletId ?? null, rangeStart, rangeEnd, user.id)
-
-    return {
+  const finalData = useMemo<DashboardData>(
+    () => ({
       ...data,
-      transferredOut,
-      netBalance: data.monthIncome - data.monthExpenses - transferredOut,
-    }
-  }, [data, transfers, walletId, user, rangeStart, rangeEnd])
+      monthIncome: financials.totalIncome,
+      monthExpenses: financials.totalExpenses,
+      transferredOut: financials.transferredOut,
+      netBalance: financials.netBalance,
+    }),
+    [data, financials],
+  )
 
-  return { data: finalData, loading: loading || transfersLoading, error, refresh }
+  return {
+    data: finalData,
+    loading: loading || financialsLoading,
+    error: error ?? financialsError,
+    refresh,
+  }
 }

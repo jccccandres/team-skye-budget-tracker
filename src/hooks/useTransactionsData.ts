@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { monthRange } from '../lib/format'
-import { supabase } from '../lib/supabaseClient'
 import type { Transfer } from '../types/database'
 import { useAuth } from './useAuth'
-import { sumTransfersOut, useTransfers } from './useTransfers'
+import { useWalletPeriodFinancials } from './useWalletPeriodFinancials'
 
 export type CombinedTransaction =
   | { type: 'income'; id: string; date: string; createdAt: string; amount: number; label: string }
@@ -43,85 +42,18 @@ const emptyData: TransactionsData = {
  */
 export function useTransactionsData(walletId: string | null, referenceDate: Date = new Date()) {
   const { user } = useAuth()
-  const [rawIncome, setRawIncome] = useState<
-    { id: string; amount: number; source: string; date: string; created_at: string; transfer_id: string | null }[]
-  >([])
-  const [rawExpenses, setRawExpenses] = useState<
-    {
-      id: string
-      amount: number
-      category: string
-      description: string | null
-      date: string
-      created_at: string
-      transfer_id: string | null
-    }[]
-  >([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const { items: transfers, loading: transfersLoading, refresh: refreshTransfers } = useTransfers()
   const { start, end } = monthRange(referenceDate)
 
-  const refresh = useCallback(async () => {
-    if (!supabase || !user) {
-      setRawIncome([])
-      setRawExpenses([])
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    // Transfer-linked income/expense rows are fetched too (matching the
-    // dashboard's totals), but they're excluded from the displayed
-    // transaction list below - they're already represented there by their
-    // originating Transfer row, so showing both would double-list the same
-    // money movement.
-    let incomeQuery = supabase
-      .from('income')
-      .select('id, amount, source, date, created_at, transfer_id')
-      .gte('date', start)
-      .lte('date', end)
-    let expensesQuery = supabase
-      .from('expenses')
-      .select('id, amount, category, description, date, created_at, transfer_id')
-      .gte('date', start)
-      .lte('date', end)
-
-    incomeQuery = walletId ? incomeQuery.eq('wallet_id', walletId) : incomeQuery.is('wallet_id', null)
-    expensesQuery = walletId
-      ? expensesQuery.eq('wallet_id', walletId)
-      : expensesQuery.is('wallet_id', null)
-
-    const [incomeResult, expensesResult] = await Promise.all([incomeQuery, expensesQuery])
-
-    const firstError = incomeResult.error ?? expensesResult.error
-    if (firstError) {
-      setError(firstError.message)
-      setRawIncome([])
-      setRawExpenses([])
-      setLoading(false)
-      return
-    }
-
-    setRawIncome(incomeResult.data ?? [])
-    setRawExpenses(expensesResult.data ?? [])
-    await refreshTransfers()
-    setLoading(false)
-  }, [user, walletId, start, end, refreshTransfers])
-
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
+  const {
+    data: financials,
+    transfers,
+    loading,
+    error,
+    refresh,
+  } = useWalletPeriodFinancials(walletId, start, end)
 
   const data = useMemo<TransactionsData>(() => {
     if (!user) return emptyData
-
-    const monthIncome = rawIncome.reduce((sum, r) => sum + Number(r.amount), 0)
-    const monthExpenses = rawExpenses.reduce((sum, r) => sum + Number(r.amount), 0)
-    const transferredOut = sumTransfersOut(transfers, walletId ?? null, start, end, user.id)
 
     const relevantTransfers = transfers.filter((t) => {
       if (t.date < start || t.date > end) return false
@@ -134,8 +66,13 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
       )
     })
 
+    // Transfer-linked income/expense rows are excluded from the displayed
+    // list - they're already represented there by their originating
+    // Transfer row, so showing both would double-list the same money
+    // movement. (They're still included in monthIncome/monthExpenses,
+    // matching the dashboard's totals.)
     const transactions: CombinedTransaction[] = [
-      ...rawIncome
+      ...financials.incomeRows
         .filter((r) => !r.transfer_id)
         .map((r) => ({
           type: 'income' as const,
@@ -145,7 +82,7 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
           amount: Number(r.amount),
           label: r.source,
         })),
-      ...rawExpenses
+      ...financials.expenseRows
         .filter((r) => !r.transfer_id)
         .map((r) => ({
           type: 'expense' as const,
@@ -180,13 +117,13 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
     )
 
     return {
-      monthIncome,
-      monthExpenses,
-      transferredOut,
-      netBalance: monthIncome - monthExpenses - transferredOut,
+      monthIncome: financials.totalIncome,
+      monthExpenses: financials.totalExpenses,
+      transferredOut: financials.transferredOut,
+      netBalance: financials.netBalance,
       transactions,
     }
-  }, [user, walletId, start, end, rawIncome, rawExpenses, transfers])
+  }, [user, walletId, start, end, financials, transfers])
 
-  return { data, loading: loading || transfersLoading, error, refresh }
+  return { data, loading, error, refresh }
 }

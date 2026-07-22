@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { useMemo } from 'react'
 import { useAuth } from './useAuth'
+import { useWalletPeriodFinancials } from './useWalletPeriodFinancials'
 
 export interface CategoryTotal {
   category: string
@@ -31,6 +31,8 @@ interface ReportsData {
   weeklyTrend: TrendPoint[]
   totalIncome: number
   totalExpenses: number
+  transferredOut: number
+  netBalance: number
 }
 
 const emptyData: ReportsData = {
@@ -40,6 +42,8 @@ const emptyData: ReportsData = {
   weeklyTrend: [],
   totalIncome: 0,
   totalExpenses: 0,
+  transferredOut: 0,
+  netBalance: 0,
 }
 
 function monthKey(date: string): string {
@@ -119,50 +123,13 @@ function buildTrend(
  */
 export function useReportsData(walletId: string | null, start: string, end: string) {
   const { user } = useAuth()
-  const [data, setData] = useState<ReportsData>(emptyData)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: financials, loading, error, refresh } = useWalletPeriodFinancials(walletId, start, end)
 
-  const refresh = useCallback(async () => {
-    if (!supabase || !user) {
-      setData(emptyData)
-      setLoading(false)
-      return
-    }
+  const data = useMemo<ReportsData>(() => {
+    if (!user) return emptyData
 
-    setLoading(true)
-    setError(null)
-
-    let expensesQuery = supabase
-      .from('expenses')
-      .select('id, amount, category, description, date')
-      .gte('date', start)
-      .lte('date', end)
-    let incomeQuery = supabase
-      .from('income')
-      .select('amount, date')
-      .gte('date', start)
-      .lte('date', end)
-
-    expensesQuery = walletId
-      ? expensesQuery.eq('wallet_id', walletId)
-      : expensesQuery.is('wallet_id', null)
-    incomeQuery = walletId
-      ? incomeQuery.eq('wallet_id', walletId)
-      : incomeQuery.is('wallet_id', null)
-
-    const [expensesResult, incomeResult] = await Promise.all([expensesQuery, incomeQuery])
-
-    const firstError = expensesResult.error ?? incomeResult.error
-    if (firstError) {
-      setError(firstError.message)
-      setData(emptyData)
-      setLoading(false)
-      return
-    }
-
-    const expenseRows = expensesResult.data ?? []
-    const incomeRows = incomeResult.data ?? []
+    const expenseRows = financials.expenseRows
+    const incomeRows = financials.incomeRows
 
     const categoryMap = new Map<string, number>()
     const expensesByCategory = new Map<string, CategoryExpense[]>()
@@ -182,20 +149,17 @@ export function useReportsData(walletId: string | null, start: string, end: stri
     const monthlyTrend = buildTrend(monthKeysInRange(start, end), monthKey, incomeRows, expenseRows)
     const weeklyTrend = buildTrend(weekKeysInRange(start, end), weekKey, incomeRows, expenseRows)
 
-    setData({
+    return {
       categoryTotals,
       expensesByCategory,
       monthlyTrend,
       weeklyTrend,
-      totalIncome: incomeRows.reduce((sum, r) => sum + Number(r.amount), 0),
-      totalExpenses: expenseRows.reduce((sum, r) => sum + Number(r.amount), 0),
-    })
-    setLoading(false)
-  }, [user, walletId, start, end])
-
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
+      totalIncome: financials.totalIncome,
+      totalExpenses: financials.totalExpenses,
+      transferredOut: financials.transferredOut,
+      netBalance: financials.netBalance,
+    }
+  }, [user, start, end, financials])
 
   return { data, loading, error, refresh }
 }

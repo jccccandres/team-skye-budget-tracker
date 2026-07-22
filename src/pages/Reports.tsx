@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { CategoryBarChart } from '../components/reports/CategoryBarChart'
 import { CategoryExpenseList } from '../components/reports/CategoryExpenseList'
 import { DateRangePicker } from '../components/reports/DateRangePicker'
@@ -33,11 +33,6 @@ export function ReportsPage() {
 
   const { data, loading, error } = useReportsData(activeWalletId, range.start, range.end)
 
-  const net = useMemo(
-    () => data.totalIncome - data.totalExpenses,
-    [data.totalIncome, data.totalExpenses],
-  )
-
   const trendPoints = granularity === 'weekly' ? data.weeklyTrend : data.monthlyTrend
 
   return (
@@ -67,13 +62,20 @@ export function ReportsPage() {
         <p className="text-sm text-slate-500 dark:text-slate-400">Loading reports…</p>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Total income" value={formatCurrency(data.totalIncome)} variant="positive" />
             <StatCard label="Total expenses" value={formatCurrency(data.totalExpenses)} variant="negative" />
             <StatCard
+              label="Transferred"
+              value={formatCurrency(data.transferredOut)}
+              hint="Sent out this period"
+              variant={data.transferredOut > 0 ? 'negative' : 'default'}
+            />
+            <StatCard
               label="Net"
-              value={formatCurrency(net)}
-              variant={net >= 0 ? 'positive' : 'negative'}
+              value={formatCurrency(data.netBalance)}
+              hint="Income minus expenses minus transferred"
+              variant={data.netBalance >= 0 ? 'positive' : 'negative'}
             />
           </div>
 
