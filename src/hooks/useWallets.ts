@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { readCache, writeCache } from '../lib/offlineStore'
 import type { Wallet, WalletInsert, WalletInvite, WalletMember } from '../types/database'
 import { useAuth } from './useAuth'
 
@@ -7,17 +8,31 @@ export interface WalletWithMembers extends Wallet {
   members: WalletMember[]
 }
 
+const CACHE_KEY = 'wallets'
+
 export function useWallets() {
   const { user } = useAuth()
-  const [wallets, setWallets] = useState<WalletWithMembers[]>([])
+  const [wallets, setWallets] = useState<WalletWithMembers[]>(() =>
+    readCache<WalletWithMembers[]>(CACHE_KEY, []),
+  )
   const [pendingInvites, setPendingInvites] = useState<WalletInvite[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Read-only cache so the wallet list (e.g. "Log to" when adding an expense
+  // offline) still has options while offline. Wallet management itself
+  // (create/invite/leave) requires a connection. Pending invites aren't
+  // cached - they're only actionable online anyway.
   const refresh = useCallback(async () => {
-    if (!supabase || !user) {
+    if (!user) {
       setWallets([])
+      writeCache(CACHE_KEY, [])
       setPendingInvites([])
+      setLoading(false)
+      return
+    }
+
+    if (!supabase || !navigator.onLine) {
       setLoading(false)
       return
     }
@@ -35,7 +50,6 @@ export function useWallets() {
     const walletsError = walletsResult.error ?? membersResult.error
     if (walletsError) {
       setError(walletsError.message)
-      setWallets([])
     } else {
       const members = (membersResult.data as WalletMember[]) ?? []
       const combined = ((walletsResult.data as Wallet[]) ?? []).map((wallet) => ({
@@ -43,6 +57,7 @@ export function useWallets() {
         members: members.filter((m) => m.wallet_id === wallet.id),
       }))
       setWallets(combined)
+      writeCache(CACHE_KEY, combined)
     }
 
     if (invitesResult.error) {
