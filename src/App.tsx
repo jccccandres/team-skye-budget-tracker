@@ -16,6 +16,7 @@ import { ChangePasswordPage } from './pages/ChangePassword'
 import { WalletsPage } from './pages/Wallets'
 import { CreditCardsPage } from './pages/CreditCards'
 import { ReportsPage } from './pages/Reports'
+import { TransactionsPage } from './pages/Transactions'
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/expenses" element={<ExpensesPage />} />
                   <Route path="/income" element={<IncomePage />} />
+                  <Route path="/transactions" element={<TransactionsPage />} />
                   <Route path="/debts" element={<DebtsPage />} />
                   <Route path="/credit-cards" element={<CreditCardsPage />} />
                   <Route path="/savings" element={<SavingsPage />} />

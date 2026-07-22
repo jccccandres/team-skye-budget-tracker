@@ -10,6 +10,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/expenses', label: 'Expenses' },
   { to: '/income', label: 'Income' },
+  { to: '/transactions', label: 'Transactions' },
   { to: '/debts', label: 'Debts' },
   { to: '/credit-cards', label: 'Credit cards' },
   { to: '/savings', label: 'Savings' },
