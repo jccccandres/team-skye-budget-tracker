@@ -6,7 +6,7 @@ import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { Modal } from '../components/ui/Modal'
 import { PageHeader, PrimaryButton, SecondaryButton } from '../components/ui/PageHeader'
 import { useGroceryLists } from '../hooks/useGroceryLists'
-import { formatDate } from '../lib/format'
+import { formatDateTime } from '../lib/format'
 import type { GroceryList } from '../types/database'
 
 export function GroceryListsPage() {
@@ -65,7 +65,7 @@ export function GroceryListsPage() {
               <Link to={`/grocery/${list.id}`} className="min-w-0">
                 <h3 className="truncate font-medium text-slate-900 dark:text-slate-100">{list.name}</h3>
                 <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-                  Created {formatDate(list.created_at)}
+                  Created {formatDateTime(list.created_at)}
                   {pendingIds.has(list.id) ? ' · Not synced yet' : ''}
                 </p>
               </Link>

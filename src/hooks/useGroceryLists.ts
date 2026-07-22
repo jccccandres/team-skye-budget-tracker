@@ -53,7 +53,7 @@ export function useGroceryLists() {
       .from('grocery_lists')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
 
     if (fetchError) {
       setError(fetchError.message)
@@ -65,7 +65,7 @@ export function useGroceryLists() {
       const unsynced = listsRef.current.filter(
         (l) => stillPending.has(l.id) && !server.some((s) => s.id === l.id),
       )
-      persist([...server, ...unsynced])
+      persist([...unsynced, ...server])
       setPending(stillPending)
     }
 
@@ -93,7 +93,7 @@ export function useGroceryLists() {
         created_at: new Date().toISOString(),
       }
 
-      persist([...listsRef.current, row])
+      persist([row, ...listsRef.current])
       setPending((prev) => new Set(prev).add(row.id))
       enqueueOp({ id: row.id, table: 'grocery_lists', action: 'upsert', payload: row })
       void flushOutbox().then(() => setPending(pendingIds('grocery_lists')))

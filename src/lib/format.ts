@@ -23,6 +23,16 @@ export function formatMonthDay(date: string): string {
   )
 }
 
+/**
+ * Formats a full ISO timestamp (e.g. a `created_at` column), unlike
+ * `formatDate` which expects a plain `YYYY-MM-DD` date-only string.
+ */
+export function formatDateTime(timestamp: string): string {
+  const parsed = new Date(timestamp)
+  if (Number.isNaN(parsed.getTime())) return timestamp
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
