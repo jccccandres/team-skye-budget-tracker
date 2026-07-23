@@ -138,6 +138,8 @@ CREATE TABLE grocery_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   list_id UUID NOT NULL REFERENCES grocery_lists (id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'pantry_snacks'
+    CHECK (category IN ('meat_frozen', 'fruits_veggies', 'pantry_snacks', 'household_cleaning')),
   checked BOOLEAN NOT NULL DEFAULT false,
   price NUMERIC(12, 2) CHECK (price IS NULL OR price >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()

@@ -126,10 +126,19 @@ export interface GroceryList {
   created_at: string
 }
 
+// Grocery items are grouped into a fixed set of categories so a list can
+// show separate sections in the UI.
+export type GroceryItemCategory =
+  | 'meat_frozen'
+  | 'fruits_veggies'
+  | 'pantry_snacks'
+  | 'household_cleaning'
+
 export interface GroceryItem {
   id: string
   list_id: string
   name: string
+  category: GroceryItemCategory
   checked: boolean
   price: number | null
   created_at: string
@@ -176,8 +185,8 @@ export type SavingsTransactionInsert = Pick<
 export type GroceryListInsert = Pick<GroceryList, 'id' | 'name'>
 export type GroceryListUpdate = Pick<GroceryList, 'name'>
 
-export type GroceryItemInsert = Pick<GroceryItem, 'id' | 'list_id' | 'name'>
-export type GroceryItemUpdate = Partial<Pick<GroceryItem, 'name' | 'checked' | 'price'>>
+export type GroceryItemInsert = Pick<GroceryItem, 'id' | 'list_id' | 'name' | 'category'>
+export type GroceryItemUpdate = Partial<Pick<GroceryItem, 'name' | 'category' | 'checked' | 'price'>>
 
 export interface CreateTransferInput {
   amount: number

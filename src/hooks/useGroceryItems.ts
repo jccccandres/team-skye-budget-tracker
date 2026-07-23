@@ -9,7 +9,7 @@ import {
   useOnlineStatus,
   writeCache,
 } from '../lib/offlineStore'
-import type { GroceryItem, GroceryItemUpdate } from '../types/database'
+import type { GroceryItem, GroceryItemCategory, GroceryItemUpdate } from '../types/database'
 import { useAuth } from './useAuth'
 
 function cacheKey(listId: string) {
@@ -87,13 +87,14 @@ export function useGroceryItems(listId: string | null) {
   }, [online])
 
   const addItem = useCallback(
-    async (name: string) => {
+    async (name: string, category: GroceryItemCategory) => {
       if (!user || !listId) return { error: 'No list selected.' }
 
       const row: GroceryItem = {
         id: crypto.randomUUID(),
         list_id: listId,
         name,
+        category,
         checked: false,
         price: null,
         created_at: new Date().toISOString(),
