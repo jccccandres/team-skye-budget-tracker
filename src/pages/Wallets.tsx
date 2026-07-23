@@ -62,7 +62,7 @@ export function WalletsPage() {
   return (
     <div>
       <PageHeader
-        title="Shared wallets"
+        title="Wallets"
         description="Create a wallet to share expenses and income with someone else, like a partner."
       />
 
@@ -102,7 +102,7 @@ export function WalletsPage() {
       {loading ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">Loading wallets…</p>
       ) : wallets.length === 0 ? (
-        <EmptyState message="No shared wallets yet. Create one above to start sharing with your partner." />
+        <EmptyState message="No wallets yet. Create one above to start sharing with your partner." />
       ) : (
         <div className="space-y-6">
           {wallets.map((wallet) => (

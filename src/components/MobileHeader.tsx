@@ -10,7 +10,7 @@ const menuNavItems = [
   { to: '/credit-cards', label: 'Credit cards' },
   { to: '/savings', label: 'Savings' },
   { to: '/reports', label: 'Reports' },
-  { to: '/wallets', label: 'Shared wallets' },
+  { to: '/wallets', label: 'Wallets' },
   { to: '/grocery', label: 'Grocery lists' },
 ] as const
 
