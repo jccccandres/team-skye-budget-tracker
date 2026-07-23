@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { monthRange } from '../lib/format'
 import { supabase } from '../lib/supabaseClient'
+import { useDataChangeListener } from '../lib/dataSync'
 import type { CreditCard, Debt, DebtCategory, Expense } from '../types/database'
 import { useAuth } from './useAuth'
 import { useWalletPeriodFinancials } from './useWalletPeriodFinancials'
@@ -249,6 +250,11 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // Refresh when a mutation elsewhere (e.g. adding an expense via the Quick
+  // Add button while already viewing the Dashboard) changes data this page
+  // displays, so it doesn't take a navigate-away-and-back to see it.
+  useDataChangeListener(refresh)
 
   const finalData = useMemo<DashboardData>(
     () => ({

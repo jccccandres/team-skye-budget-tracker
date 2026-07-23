@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { monthRange } from '../lib/format'
+import { useDataChangeListener } from '../lib/dataSync'
 import type { Transfer } from '../types/database'
 import { useAuth } from './useAuth'
 import { useWalletPeriodFinancials } from './useWalletPeriodFinancials'
@@ -51,6 +52,8 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
     error,
     refresh,
   } = useWalletPeriodFinancials(walletId, start, end)
+
+  useDataChangeListener(refresh)
 
   const data = useMemo<TransactionsData>(() => {
     if (!user) return emptyData

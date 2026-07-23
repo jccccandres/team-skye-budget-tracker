@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { notifyDataChanged } from '../lib/dataSync'
 import type { CreateTransferInput, Transfer } from '../types/database'
 import { useAuth } from './useAuth'
 
@@ -80,6 +81,7 @@ export function useTransfers() {
       if (rpcError) return { error: rpcError.message }
 
       await refresh()
+      notifyDataChanged()
       return { error: null }
     },
     [user, refresh],

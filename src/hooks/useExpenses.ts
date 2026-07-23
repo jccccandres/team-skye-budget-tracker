@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { notifyDataChanged } from '../lib/dataSync'
 import {
   discardOps,
   enqueueOp,
@@ -127,7 +128,10 @@ export function useExpenses(walletId?: string | null) {
       persist([row, ...itemsRef.current])
       setPending((prev) => new Set(prev).add(row.id))
       enqueueOp({ id: row.id, table: 'expenses', action: 'upsert', payload: row })
-      void flushOutbox().then(() => setPending(pendingIds('expenses')))
+      void flushOutbox().then(() => {
+        setPending(pendingIds('expenses'))
+        notifyDataChanged()
+      })
 
       return { error: null }
     },
@@ -146,7 +150,10 @@ export function useExpenses(walletId?: string | null) {
       persist(itemsRef.current.map((i) => (i.id === id ? row : i)))
       setPending((prev) => new Set(prev).add(id))
       enqueueOp({ id, table: 'expenses', action: 'upsert', payload: row })
-      void flushOutbox().then(() => setPending(pendingIds('expenses')))
+      void flushOutbox().then(() => {
+        setPending(pendingIds('expenses'))
+        notifyDataChanged()
+      })
 
       return { error: null }
     },
@@ -170,7 +177,7 @@ export function useExpenses(walletId?: string | null) {
         discardOps('expenses', id)
       } else {
         enqueueOp({ id, table: 'expenses', action: 'delete', payload: { id } })
-        void flushOutbox()
+        void flushOutbox().then(() => notifyDataChanged())
       }
 
       return { error: null }

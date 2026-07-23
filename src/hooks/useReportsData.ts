@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useDataChangeListener } from '../lib/dataSync'
 import { useAuth } from './useAuth'
 import { useWalletPeriodFinancials } from './useWalletPeriodFinancials'
 
@@ -124,6 +125,8 @@ function buildTrend(
 export function useReportsData(walletId: string | null, start: string, end: string) {
   const { user } = useAuth()
   const { data: financials, loading, error, refresh } = useWalletPeriodFinancials(walletId, start, end)
+
+  useDataChangeListener(refresh)
 
   const data = useMemo<ReportsData>(() => {
     if (!user) return emptyData

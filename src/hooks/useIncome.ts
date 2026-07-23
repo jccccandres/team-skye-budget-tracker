@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { notifyDataChanged } from '../lib/dataSync'
 import type { Income, IncomeInsert, IncomeUpdate } from '../types/database'
 import { useAuth } from './useAuth'
 
@@ -55,6 +56,7 @@ export function useIncome(walletId?: string | null) {
       if (insertError) return { error: insertError.message }
 
       await refresh()
+      notifyDataChanged()
       return { error: null }
     },
     [user, walletId, refresh],
@@ -69,6 +71,7 @@ export function useIncome(walletId?: string | null) {
       if (updateError) return { error: updateError.message }
 
       await refresh()
+      notifyDataChanged()
       return { error: null }
     },
     [user, refresh],
@@ -83,6 +86,7 @@ export function useIncome(walletId?: string | null) {
       if (deleteError) return { error: deleteError.message }
 
       await refresh()
+      notifyDataChanged()
       return { error: null }
     },
     [user, refresh],
