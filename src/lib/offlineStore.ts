@@ -86,10 +86,16 @@ export function hasPendingOps(): boolean {
  * Attempt to push every queued op to Supabase, in the order they were made.
  * Stops (keeping the remainder queued) at the first failure so ordering is
  * preserved for a retry - e.g. a list must sync before its items.
+ *
+ * Deliberately does NOT gate on navigator.onLine first - that flag is known
+ * to be unreliable on some devices (notably Android Chrome, which can
+ * report "offline" while actually connected), so trusting it as a hard
+ * gate can permanently block syncing. Instead we just attempt the request
+ * and let its real outcome (success, a returned error, or a thrown
+ * network exception) decide what happens.
  */
 export async function flushOutbox(): Promise<void> {
   if (!supabase) return
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return
 
   const ops = getOutbox()
   if (ops.length === 0) return

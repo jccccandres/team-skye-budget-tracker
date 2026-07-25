@@ -50,7 +50,7 @@ export function useGroceryItems(listId: string | null) {
     await flushOutbox()
     setPending(pendingIds('grocery_items'))
 
-    if (!supabase || !navigator.onLine) {
+    if (!supabase) {
       setLoading(false)
       return
     }

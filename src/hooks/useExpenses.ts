@@ -75,7 +75,7 @@ export function useExpenses(walletId?: string | null) {
     await flushOutbox()
     setPending(pendingIds('expenses'))
 
-    if (!supabase || !navigator.onLine) {
+    if (!supabase) {
       setLoading(false)
       return
     }

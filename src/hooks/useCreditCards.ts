@@ -23,7 +23,7 @@ export function useCreditCards() {
       return
     }
 
-    if (!supabase || !navigator.onLine) {
+    if (!supabase) {
       setLoading(false)
       return
     }

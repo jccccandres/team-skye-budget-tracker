@@ -43,8 +43,8 @@ export function useGroceryLists() {
     await flushOutbox()
     setPending(pendingIds('grocery_lists'))
 
-    if (!supabase || !navigator.onLine) {
-      // Offline: keep showing whatever is cached locally.
+    if (!supabase) {
+      // Not configured at all: keep showing whatever is cached locally.
       setLoading(false)
       return
     }

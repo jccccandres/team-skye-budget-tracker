@@ -32,7 +32,7 @@ export function useWallets() {
       return
     }
 
-    if (!supabase || !navigator.onLine) {
+    if (!supabase) {
       setLoading(false)
       return
     }
