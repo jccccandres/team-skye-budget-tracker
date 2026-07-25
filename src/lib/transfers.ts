@@ -1,4 +1,5 @@
 import type {
+  CreditCard,
   Debt,
   SavingsGoal,
   Transfer,
@@ -17,6 +18,7 @@ interface HasTransferDestination {
   destination_wallet_id: string | null
   destination_savings_goal_id: string | null
   destination_debt_id: string | null
+  destination_credit_card_id: string | null
 }
 
 export function transferSourceLabel(transfer: HasTransferSource, wallets: Wallet[]): string {
@@ -30,6 +32,7 @@ export function transferDestinationLabel(
   wallets: Wallet[],
   goals: SavingsGoal[],
   debts: Debt[] = [],
+  creditCards: CreditCard[] = [],
 ): string {
   if (transfer.destination_type === 'wallet') {
     const wallet = wallets.find((w) => w.id === transfer.destination_wallet_id)
@@ -38,6 +41,10 @@ export function transferDestinationLabel(
   if (transfer.destination_type === 'debt') {
     const debt = debts.find((d) => d.id === transfer.destination_debt_id)
     return debt ? `${debt.name} (payment)` : 'Debt payment'
+  }
+  if (transfer.destination_type === 'credit_card') {
+    const card = creditCards.find((c) => c.id === transfer.destination_credit_card_id)
+    return card ? `${card.name} (bill payment)` : 'Credit card payment'
   }
   const goal = goals.find((g) => g.id === transfer.destination_savings_goal_id)
   return goal ? goal.name : 'Savings goal'

@@ -13,17 +13,24 @@ DROP TABLE IF EXISTS wallet_invites CASCADE;
 DROP TABLE IF EXISTS wallet_members CASCADE;
 DROP TABLE IF EXISTS expenses CASCADE;
 DROP TABLE IF EXISTS income CASCADE;
+DROP TABLE IF EXISTS debt_payments CASCADE;
 DROP TABLE IF EXISTS debts CASCADE;
+DROP TABLE IF EXISTS credit_card_payments CASCADE;
+DROP TABLE IF EXISTS credit_cards CASCADE;
 DROP TABLE IF EXISTS wallets CASCADE;
 
 -- 2. Functions (safe now that dependent policies are gone)
 DROP FUNCTION IF EXISTS public.create_transfer(NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID) CASCADE;
 DROP FUNCTION IF EXISTS public.create_transfer(NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID, NUMERIC) CASCADE;
+DROP FUNCTION IF EXISTS public.create_transfer(NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID, UUID, NUMERIC) CASCADE;
+DROP FUNCTION IF EXISTS public.create_transfer(NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID, UUID, UUID, NUMERIC) CASCADE;
 DROP FUNCTION IF EXISTS public.get_wallet_peer_emails(UUID[]) CASCADE;
 DROP FUNCTION IF EXISTS public.auth_user_email() CASCADE;
 DROP FUNCTION IF EXISTS public.is_wallet_creator(UUID) CASCADE;
 DROP FUNCTION IF EXISTS public.is_wallet_member(UUID) CASCADE;
 DROP FUNCTION IF EXISTS public.recalc_savings_goal_balance() CASCADE;
+DROP FUNCTION IF EXISTS public.apply_debt_payment() CASCADE;
+DROP FUNCTION IF EXISTS public.delete_linked_transfer() CASCADE;
 
 -- 3. Types
 DROP TYPE IF EXISTS debt_type;

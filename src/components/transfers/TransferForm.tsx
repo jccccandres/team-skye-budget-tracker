@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { FormField, SelectInput, TextInput } from '../ui/FormField'
 import { PrimaryButton } from '../ui/PageHeader'
+import { useCreditCards } from '../../hooks/useCreditCards'
 import { useDebts } from '../../hooks/useDebts'
 import { useSavingsGoals } from '../../hooks/useSavings'
 import { useTransfers } from '../../hooks/useTransfers'
@@ -16,23 +17,36 @@ interface TransferFormProps {
    * "Pay" shortcut on the Debts page). The person can still change the
    * source and amount, just not the destination. */
   presetDebtId?: string
+  /** Pre-select and lock the destination to a specific credit card (used by
+   * the "Pay bill" shortcut on the Credit Cards page). The person can still
+   * change the source and amount, just not the destination. */
+  presetCreditCardId?: string
 }
 
-export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormProps) {
+export function TransferForm({
+  onDone,
+  onCancel,
+  presetDebtId,
+  presetCreditCardId,
+}: TransferFormProps) {
   const { wallets } = useWallets()
   const { items: goals } = useSavingsGoals()
   const { items: debts } = useDebts()
+  const { items: creditCards } = useCreditCards()
   const { createTransfer } = useTransfers()
 
   const [sourceType, setSourceType] = useState<TransferSourceType>('personal')
   const [sourceWalletId, setSourceWalletId] = useState(wallets[0]?.id ?? '')
 
   const [destinationType, setDestinationType] = useState<TransferDestinationType>(
-    presetDebtId ? 'debt' : 'wallet',
+    presetCreditCardId ? 'credit_card' : presetDebtId ? 'debt' : 'wallet',
   )
   const [destinationWalletId, setDestinationWalletId] = useState(wallets[0]?.id ?? '')
   const [destinationGoalId, setDestinationGoalId] = useState(goals[0]?.id ?? '')
   const [destinationDebtId, setDestinationDebtId] = useState(presetDebtId ?? debts[0]?.id ?? '')
+  const [destinationCreditCardId, setDestinationCreditCardId] = useState(
+    presetCreditCardId ?? creditCards[0]?.id ?? '',
+  )
 
   const [amount, setAmount] = useState('0.00')
   const [fee, setFee] = useState('0.00')
@@ -75,10 +89,21 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
     }
   }, [debts, destinationDebtId, presetDebtId])
 
-  // A wallet-sourced transfer can only go to a savings goal or a debt
-  // payment (moving it to another wallet isn't a supported flow yet).
+  useEffect(() => {
+    if (presetCreditCardId || creditCards.length === 0) return
+    if (!creditCards.some((c) => c.id === destinationCreditCardId)) {
+      setDestinationCreditCardId(creditCards[0].id)
+    }
+  }, [creditCards, destinationCreditCardId, presetCreditCardId])
+
+  // A wallet-sourced transfer can only go to a savings goal, a debt payment,
+  // or a credit card bill payment (moving it to another wallet isn't a
+  // supported flow yet).
   const destinationOptions = useMemo<TransferDestinationType[]>(
-    () => (sourceType === 'wallet' ? ['savings_goal', 'debt'] : ['wallet', 'savings_goal', 'debt']),
+    () =>
+      sourceType === 'wallet'
+        ? ['savings_goal', 'debt', 'credit_card']
+        : ['wallet', 'savings_goal', 'debt', 'credit_card'],
     [sourceType],
   )
 
@@ -114,6 +139,10 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
       setError('Select a debt, or add one first.')
       return
     }
+    if (destinationType === 'credit_card' && !destinationCreditCardId) {
+      setError('Select a credit card, or add one first.')
+      return
+    }
     if (
       sourceType === 'wallet' &&
       destinationType === 'wallet' &&
@@ -135,6 +164,7 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
       destinationWalletId: destinationType === 'wallet' ? destinationWalletId : null,
       destinationSavingsGoalId: destinationType === 'savings_goal' ? destinationGoalId : null,
       destinationDebtId: destinationType === 'debt' ? destinationDebtId : null,
+      destinationCreditCardId: destinationType === 'credit_card' ? destinationCreditCardId : null,
     })
     setSubmitting(false)
 
@@ -175,7 +205,7 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
         <SelectInput
           id="transfer-destination-type"
           value={destinationType}
-          disabled={Boolean(presetDebtId)}
+          disabled={Boolean(presetDebtId || presetCreditCardId)}
           onChange={(e) => setDestinationType(e.target.value as TransferDestinationType)}
         >
           {destinationOptions.includes('wallet') && <option value="wallet">A shared wallet</option>}
@@ -183,6 +213,9 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
             <option value="savings_goal">A savings goal</option>
           )}
           {destinationOptions.includes('debt') && <option value="debt">A debt payment</option>}
+          {destinationOptions.includes('credit_card') && (
+            <option value="credit_card">A credit card bill</option>
+          )}
         </SelectInput>
       </FormField>
 
@@ -246,6 +279,29 @@ export function TransferForm({ onDone, onCancel, presetDebtId }: TransferFormPro
               {debts.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
+                </option>
+              ))}
+            </SelectInput>
+          )}
+        </FormField>
+      )}
+
+      {destinationType === 'credit_card' && (
+        <FormField label="Credit card" htmlFor="transfer-destination-credit-card">
+          {creditCards.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              You don't have any credit cards tracked yet.
+            </p>
+          ) : (
+            <SelectInput
+              id="transfer-destination-credit-card"
+              value={destinationCreditCardId}
+              disabled={Boolean(presetCreditCardId)}
+              onChange={(e) => setDestinationCreditCardId(e.target.value)}
+            >
+              {creditCards.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </SelectInput>

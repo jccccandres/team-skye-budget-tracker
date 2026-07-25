@@ -1,4 +1,5 @@
 import { useAuth } from '../../hooks/useAuth'
+import { useCreditCards } from '../../hooks/useCreditCards'
 import { useDebts } from '../../hooks/useDebts'
 import { useSavingsGoals } from '../../hooks/useSavings'
 import { useTransfers } from '../../hooks/useTransfers'
@@ -17,6 +18,7 @@ export function TransferHistory({ start, end }: { start?: string; end?: string }
   const { wallets } = useWallets()
   const { items: goals } = useSavingsGoals()
   const { items: debts } = useDebts()
+  const { items: creditCards } = useCreditCards()
   const { items: allItems, creatorEmails, loading } = useTransfers()
 
   const items =
@@ -42,7 +44,7 @@ export function TransferHistory({ start, end }: { start?: string; end?: string }
             <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
               {transferSourceLabel(transfer, wallets)}
               {' → '}
-              {transferDestinationLabel(transfer, wallets, goals, debts)}
+              {transferDestinationLabel(transfer, wallets, goals, debts, creditCards)}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {formatDate(transfer.date)}

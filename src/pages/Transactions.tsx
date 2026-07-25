@@ -48,7 +48,7 @@ export function TransactionsPage() {
   function rowLabel(txn: CombinedTransaction): string {
     if (txn.type !== 'transfer') return txn.label
     const sourceLabel = transferSourceLabel(txn.transfer, wallets)
-    const destinationLabel = transferDestinationLabel(txn.transfer, wallets, goals, debts)
+    const destinationLabel = transferDestinationLabel(txn.transfer, wallets, goals, debts, creditCards)
     return `${sourceLabel} → ${destinationLabel}`
   }
 

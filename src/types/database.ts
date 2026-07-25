@@ -4,7 +4,7 @@ export type WalletRole = 'owner' | 'member'
 export type InviteStatus = 'pending' | 'accepted' | 'declined'
 export type SavingsTransactionType = 'deposit' | 'withdrawal'
 export type TransferSourceType = 'personal' | 'wallet'
-export type TransferDestinationType = 'wallet' | 'savings_goal' | 'debt'
+export type TransferDestinationType = 'wallet' | 'savings_goal' | 'debt' | 'credit_card'
 export type ExpensePaymentSource = 'wallet' | 'credit_card'
 
 export interface Expense {
@@ -90,12 +90,23 @@ export interface Transfer {
   destination_wallet_id: string | null
   destination_savings_goal_id: string | null
   destination_debt_id: string | null
+  destination_credit_card_id: string | null
   created_at: string
 }
 
 export interface DebtPayment {
   id: string
   debt_id: string
+  transfer_id: string | null
+  amount: number
+  date: string
+  note: string | null
+  created_at: string
+}
+
+export interface CreditCardPayment {
+  id: string
+  credit_card_id: string
   transfer_id: string | null
   amount: number
   date: string
@@ -199,6 +210,7 @@ export interface CreateTransferInput {
   destinationWalletId: string | null
   destinationSavingsGoalId: string | null
   destinationDebtId: string | null
+  destinationCreditCardId: string | null
 }
 
 export const DEBT_CATEGORIES = [

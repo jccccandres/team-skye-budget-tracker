@@ -66,14 +66,16 @@ CREATE TABLE expenses (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE credit_cards (
+-- Credit card bill payments. Unlike debts (which have a stored
+-- remaining_balance), a credit card's "amount owed" is always computed as
+-- sum(expenses charged to the card) - sum(payments here) - so this table
+-- only needs to record payments, no balance-syncing trigger.
+CREATE TABLE credit_card_payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  limit_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  current_balance NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  cutoff_day INTEGER NOT NULL CHECK (cutoff_day BETWEEN 1 AND 31),
-  due_day INTEGER NOT NULL CHECK (due_day BETWEEN 1 AND 31),
+  credit_card_id UUID NOT NULL REFERENCES credit_cards (id) ON DELETE CASCADE,
+  amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+  date DATE NOT NULL,
+  note TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -99,6 +101,20 @@ CREATE TABLE debts (
   monthly_payment NUMERIC(12, 2) CHECK (monthly_payment IS NULL OR monthly_payment >= 0),
   due_date DATE,
   remaining_balance NUMERIC(12, 2) NOT NULL CHECK (remaining_balance >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Debt payments. Unlike savings (where current_amount starts at 0 and is
+-- always the sum of its transactions), a debt's remaining_balance starts at
+-- whatever the user entered when they added the debt, so a trigger
+-- INCREMENTALLY decrements it per payment rather than recomputing from
+-- scratch as a sum (see apply_debt_payment() below).
+CREATE TABLE debt_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  debt_id UUID NOT NULL REFERENCES debts (id) ON DELETE CASCADE,
+  amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+  date DATE NOT NULL,
+  note TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -147,7 +163,8 @@ CREATE TABLE grocery_items (
 
 CREATE INDEX grocery_items_list_id_idx ON grocery_items (list_id);
 
--- A record of money moved between Personal, a Wallet, or a Savings goal.
+-- A record of money moved between Personal, a Wallet, a Savings goal, a
+-- Debt (payment), or a Credit card (bill payment).
 -- See the `create_transfer` function below for how this is used.
 CREATE TABLE transfers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -158,9 +175,11 @@ CREATE TABLE transfers (
   note TEXT,
   source_type TEXT NOT NULL CHECK (source_type IN ('personal', 'wallet')),
   source_wallet_id UUID REFERENCES wallets (id) ON DELETE CASCADE,
-  destination_type TEXT NOT NULL CHECK (destination_type IN ('wallet', 'savings_goal')),
+  destination_type TEXT NOT NULL CHECK (destination_type IN ('wallet', 'savings_goal', 'debt', 'credit_card')),
   destination_wallet_id UUID REFERENCES wallets (id) ON DELETE CASCADE,
   destination_savings_goal_id UUID REFERENCES savings_goals (id) ON DELETE CASCADE,
+  destination_debt_id UUID REFERENCES debts (id) ON DELETE CASCADE,
+  destination_credit_card_id UUID REFERENCES credit_cards (id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   CONSTRAINT source_wallet_required CHECK (
@@ -168,8 +187,10 @@ CREATE TABLE transfers (
     OR (source_type = 'personal' AND source_wallet_id IS NULL)
   ),
   CONSTRAINT destination_target_required CHECK (
-    (destination_type = 'wallet' AND destination_wallet_id IS NOT NULL AND destination_savings_goal_id IS NULL)
-    OR (destination_type = 'savings_goal' AND destination_savings_goal_id IS NOT NULL AND destination_wallet_id IS NULL)
+    (destination_type = 'wallet' AND destination_wallet_id IS NOT NULL AND destination_savings_goal_id IS NULL AND destination_debt_id IS NULL AND destination_credit_card_id IS NULL)
+    OR (destination_type = 'savings_goal' AND destination_savings_goal_id IS NOT NULL AND destination_wallet_id IS NULL AND destination_debt_id IS NULL AND destination_credit_card_id IS NULL)
+    OR (destination_type = 'debt' AND destination_debt_id IS NOT NULL AND destination_wallet_id IS NULL AND destination_savings_goal_id IS NULL AND destination_credit_card_id IS NULL)
+    OR (destination_type = 'credit_card' AND destination_credit_card_id IS NOT NULL AND destination_wallet_id IS NULL AND destination_savings_goal_id IS NULL AND destination_debt_id IS NULL)
   )
 );
 
@@ -180,6 +201,12 @@ ALTER TABLE savings_transactions
   ADD COLUMN transfer_id UUID UNIQUE REFERENCES transfers (id) ON DELETE CASCADE;
 
 ALTER TABLE expenses
+  ADD COLUMN transfer_id UUID UNIQUE REFERENCES transfers (id) ON DELETE CASCADE;
+
+ALTER TABLE debt_payments
+  ADD COLUMN transfer_id UUID UNIQUE REFERENCES transfers (id) ON DELETE CASCADE;
+
+ALTER TABLE credit_card_payments
   ADD COLUMN transfer_id UUID UNIQUE REFERENCES transfers (id) ON DELETE CASCADE;
 
 -- ---------------------------------------------------------------------------
@@ -196,6 +223,9 @@ CREATE INDEX income_wallet_id_idx ON income (wallet_id);
 
 CREATE INDEX debts_user_id_idx ON debts (user_id);
 CREATE INDEX debts_category_idx ON debts (category);
+CREATE INDEX debt_payments_debt_id_idx ON debt_payments (debt_id);
+
+CREATE INDEX credit_card_payments_credit_card_id_idx ON credit_card_payments (credit_card_id);
 
 CREATE INDEX wallet_members_user_id_idx ON wallet_members (user_id);
 CREATE INDEX wallet_invites_wallet_id_idx ON wallet_invites (wallet_id);
@@ -208,6 +238,8 @@ CREATE INDEX transfers_user_id_idx ON transfers (user_id);
 CREATE INDEX transfers_date_idx ON transfers (date);
 CREATE INDEX transfers_source_wallet_id_idx ON transfers (source_wallet_id);
 CREATE INDEX transfers_destination_wallet_id_idx ON transfers (destination_wallet_id);
+CREATE INDEX transfers_destination_debt_id_idx ON transfers (destination_debt_id);
+CREATE INDEX transfers_destination_credit_card_id_idx ON transfers (destination_credit_card_id);
 
 -- ---------------------------------------------------------------------------
 -- Helper functions (SECURITY DEFINER, bypass RLS internally) used by the
@@ -336,6 +368,8 @@ CREATE OR REPLACE FUNCTION public.create_transfer(
   p_destination_type TEXT,
   p_destination_wallet_id UUID,
   p_destination_savings_goal_id UUID,
+  p_destination_debt_id UUID,
+  p_destination_credit_card_id UUID,
   p_fee NUMERIC DEFAULT NULL
 )
 RETURNS UUID
@@ -356,13 +390,13 @@ BEGIN
   INSERT INTO transfers (
     user_id, amount, date, note, fee,
     source_type, source_wallet_id,
-    destination_type, destination_wallet_id, destination_savings_goal_id
+    destination_type, destination_wallet_id, destination_savings_goal_id, destination_debt_id, destination_credit_card_id
   )
   VALUES (
     auth.uid(), p_amount, p_date, p_note,
     CASE WHEN p_fee IS NOT NULL AND p_fee > 0 THEN p_fee ELSE NULL END,
     p_source_type, p_source_wallet_id,
-    p_destination_type, p_destination_wallet_id, p_destination_savings_goal_id
+    p_destination_type, p_destination_wallet_id, p_destination_savings_goal_id, p_destination_debt_id, p_destination_credit_card_id
   )
   RETURNING id INTO new_transfer_id;
 
@@ -375,6 +409,12 @@ BEGIN
   ELSIF p_destination_type = 'savings_goal' THEN
     INSERT INTO savings_transactions (goal_id, amount, type, date, note, transfer_id)
     VALUES (p_destination_savings_goal_id, p_amount, 'deposit', p_date, p_note, new_transfer_id);
+  ELSIF p_destination_type = 'debt' THEN
+    INSERT INTO debt_payments (debt_id, amount, date, note, transfer_id)
+    VALUES (p_destination_debt_id, p_amount, p_date, p_note, new_transfer_id);
+  ELSIF p_destination_type = 'credit_card' THEN
+    INSERT INTO credit_card_payments (credit_card_id, amount, date, note, transfer_id)
+    VALUES (p_destination_credit_card_id, p_amount, p_date, p_note, new_transfer_id);
   END IF;
 
   IF p_fee IS NOT NULL AND p_fee > 0 THEN
@@ -391,7 +431,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.create_transfer(
-  NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID, NUMERIC
+  NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID, UUID, UUID, NUMERIC
 ) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.delete_linked_transfer()
@@ -418,6 +458,43 @@ CREATE TRIGGER savings_transactions_delete_linked_transfer
   FOR EACH ROW
   EXECUTE FUNCTION delete_linked_transfer();
 
+CREATE TRIGGER debt_payments_delete_linked_transfer
+  AFTER DELETE ON debt_payments
+  FOR EACH ROW
+  EXECUTE FUNCTION delete_linked_transfer();
+
+CREATE TRIGGER credit_card_payments_delete_linked_transfer
+  AFTER DELETE ON credit_card_payments
+  FOR EACH ROW
+  EXECUTE FUNCTION delete_linked_transfer();
+
+-- Debt payments incrementally decrement/restore debts.remaining_balance
+-- (it isn't a pure sum of payments - it can start at a nonzero value the
+-- user entered when they added the debt).
+CREATE OR REPLACE FUNCTION public.apply_debt_payment()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE debts SET remaining_balance = GREATEST(remaining_balance - NEW.amount, 0)
+    WHERE id = NEW.debt_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE debts SET remaining_balance = remaining_balance + OLD.amount
+    WHERE id = OLD.debt_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER debt_payments_after_change
+AFTER INSERT OR DELETE ON debt_payments
+FOR EACH ROW EXECUTE FUNCTION apply_debt_payment();
+
 -- ---------------------------------------------------------------------------
 -- Row Level Security
 -- ---------------------------------------------------------------------------
@@ -428,6 +505,9 @@ ALTER TABLE wallet_invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE income ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE credit_cards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE credit_card_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE savings_goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE savings_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transfers ENABLE ROW LEVEL SECURITY;
@@ -566,6 +646,18 @@ CREATE POLICY "Users can delete own debts"
   ON debts FOR DELETE
   USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can view own debt payments"
+  ON debt_payments FOR SELECT
+  USING (debt_id IN (SELECT id FROM debts WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can insert own debt payments"
+  ON debt_payments FOR INSERT
+  WITH CHECK (debt_id IN (SELECT id FROM debts WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can delete own debt payments"
+  ON debt_payments FOR DELETE
+  USING (debt_id IN (SELECT id FROM debts WHERE user_id = auth.uid()));
+
 CREATE POLICY "Users can view own credit cards"
   ON credit_cards FOR SELECT
   USING (auth.uid() = user_id);
@@ -582,6 +674,18 @@ CREATE POLICY "Users can update own credit cards"
 CREATE POLICY "Users can delete own credit cards"
   ON credit_cards FOR DELETE
   USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own credit card payments"
+  ON credit_card_payments FOR SELECT
+  USING (credit_card_id IN (SELECT id FROM credit_cards WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can insert own credit card payments"
+  ON credit_card_payments FOR INSERT
+  WITH CHECK (credit_card_id IN (SELECT id FROM credit_cards WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can delete own credit card payments"
+  ON credit_card_payments FOR DELETE
+  USING (credit_card_id IN (SELECT id FROM credit_cards WHERE user_id = auth.uid()));
 
 -- savings_goals / savings_transactions: personal only for now
 CREATE POLICY "Users can view own savings goals"
@@ -637,6 +741,20 @@ CREATE POLICY "Users can create valid transfers"
         AND EXISTS (
           SELECT 1 FROM savings_goals
           WHERE id = destination_savings_goal_id AND user_id = auth.uid()
+        )
+      )
+      OR (
+        destination_type = 'debt'
+        AND EXISTS (
+          SELECT 1 FROM debts
+          WHERE id = destination_debt_id AND user_id = auth.uid()
+        )
+      )
+      OR (
+        destination_type = 'credit_card'
+        AND EXISTS (
+          SELECT 1 FROM credit_cards
+          WHERE id = destination_credit_card_id AND user_id = auth.uid()
         )
       )
     )
