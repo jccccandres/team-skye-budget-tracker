@@ -114,15 +114,16 @@ export function TransactionsPage() {
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Income" value={formatCurrency(data.monthIncome)} variant="positive" />
-            <StatCard label="Expenses" value={formatCurrency(data.monthExpenses)} variant="negative" />
-            {data.creditCardExpenses > 0 && (
-              <StatCard
-                label="Credit-card expenses"
-                value={formatCurrency(data.creditCardExpenses)}
-                hint="Included in expenses, excluded from balance"
-                variant="warning"
-              />
-            )}
+            <StatCard
+              label="Expenses"
+              value={formatCurrency(data.monthExpenses)}
+              variant="negative"
+              breakdown={
+                data.creditCardExpenses > 0
+                  ? { label: 'Credit card', value: formatCurrency(data.creditCardExpenses), variant: 'warning' }
+                  : undefined
+              }
+            />
             <StatCard
               label="Transferred"
               value={formatCurrency(data.transferredOut)}

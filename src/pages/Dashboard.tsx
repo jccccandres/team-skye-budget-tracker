@@ -100,15 +100,12 @@ export function DashboardPage() {
               value={formatCurrency(data.monthExpenses)}
               hint={`${formatDate(start)} – ${formatDate(end)}`}
               variant="negative"
+              breakdown={
+                data.creditCardExpenses > 0
+                  ? { label: 'Credit card', value: formatCurrency(data.creditCardExpenses), variant: 'warning' }
+                  : undefined
+              }
             />
-            {data.creditCardExpenses > 0 && (
-              <StatCard
-                label="Credit-card expenses this month"
-                value={formatCurrency(data.creditCardExpenses)}
-                hint={`${formatDate(start)} – ${formatDate(end)}`}
-                variant="warning"
-              />
-            )}
             <StatCard
               label="Transferred out"
               value={formatCurrency(data.transferredOut)}

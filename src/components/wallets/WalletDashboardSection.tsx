@@ -32,14 +32,12 @@ export function WalletDashboardSection({
             label="Expenses this month"
             value={formatCurrency(data.monthExpenses)}
             variant="negative"
+            breakdown={
+              data.creditCardExpenses > 0
+                ? { label: 'Credit card', value: formatCurrency(data.creditCardExpenses), variant: 'warning' }
+                : undefined
+            }
           />
-          {data.creditCardExpenses > 0 && (
-            <StatCard
-              label="Credit-card expenses this month"
-              value={formatCurrency(data.creditCardExpenses)}
-              variant="warning"
-            />
-          )}
           <StatCard
             label="Transferred out"
             value={formatCurrency(data.transferredOut)}
