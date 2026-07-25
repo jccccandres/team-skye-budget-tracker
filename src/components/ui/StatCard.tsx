@@ -2,13 +2,14 @@ interface StatCardProps {
   label: string
   value: string
   hint?: string
-  variant?: 'default' | 'positive' | 'negative'
+  variant?: 'default' | 'positive' | 'negative' | 'warning'
 }
 
 const valueColors = {
   default: 'text-slate-900 dark:text-slate-100',
   positive: 'text-emerald-700 dark:text-emerald-400',
   negative: 'text-red-700 dark:text-red-400',
+  warning: 'text-amber-700 dark:text-amber-400',
 }
 
 export function StatCard({ label, value, hint, variant = 'default' }: StatCardProps) {

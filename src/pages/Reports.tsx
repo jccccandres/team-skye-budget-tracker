@@ -65,6 +65,14 @@ export function ReportsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Total income" value={formatCurrency(data.totalIncome)} variant="positive" />
             <StatCard label="Total expenses" value={formatCurrency(data.totalExpenses)} variant="negative" />
+            {data.creditCardExpenses > 0 && (
+              <StatCard
+                label="Credit-card expenses"
+                value={formatCurrency(data.creditCardExpenses)}
+                hint="Included in total expenses, excluded from net"
+                variant="warning"
+              />
+            )}
             <StatCard
               label="Transferred"
               value={formatCurrency(data.transferredOut)}
@@ -74,7 +82,7 @@ export function ReportsPage() {
             <StatCard
               label="Net"
               value={formatCurrency(data.netBalance)}
-              hint="Income minus expenses minus transferred"
+              hint="Income minus wallet-paid expenses minus transferred"
               variant={data.netBalance >= 0 ? 'positive' : 'negative'}
             />
           </div>

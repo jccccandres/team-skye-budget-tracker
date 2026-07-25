@@ -101,6 +101,14 @@ export function DashboardPage() {
               hint={`${formatDate(start)} – ${formatDate(end)}`}
               variant="negative"
             />
+            {data.creditCardExpenses > 0 && (
+              <StatCard
+                label="Credit-card expenses this month"
+                value={formatCurrency(data.creditCardExpenses)}
+                hint={`${formatDate(start)} – ${formatDate(end)}`}
+                variant="warning"
+              />
+            )}
             <StatCard
               label="Transferred out"
               value={formatCurrency(data.transferredOut)}
@@ -110,7 +118,7 @@ export function DashboardPage() {
             <StatCard
               label="Net balance"
               value={formatCurrency(data.netBalance)}
-              hint="Income minus expenses minus transfers out"
+              hint="Income minus wallet-paid expenses minus transfers out"
               variant={data.netBalance >= 0 ? 'positive' : 'negative'}
             />
           </div>
@@ -287,7 +295,13 @@ export function DashboardPage() {
                         {expense.description ? ` · ${expense.description}` : ''}
                       </p>
                     </div>
-                    <span className="text-sm font-medium text-red-700 dark:text-red-400">
+                    <span
+                      className={`text-sm font-medium ${
+                        expense.payment_source === 'credit_card'
+                          ? 'text-amber-700 dark:text-amber-400'
+                          : 'text-red-700 dark:text-red-400'
+                      }`}
+                    >
                       {formatCurrency(Number(expense.amount))}
                     </span>
                   </li>

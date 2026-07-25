@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { SecondaryButton } from './PageHeader'
 
-type AmountVariant = 'expense' | 'income' | 'debt' | 'neutral'
+type AmountVariant = 'expense' | 'income' | 'debt' | 'creditCard' | 'neutral'
 
 interface RecordMeta {
   label: string
@@ -23,6 +23,7 @@ const amountColors: Record<AmountVariant, string> = {
   expense: 'text-red-700 dark:text-red-400',
   income: 'text-emerald-700 dark:text-emerald-400',
   debt: 'text-amber-700 dark:text-amber-400',
+  creditCard: 'text-amber-700 dark:text-amber-400',
   neutral: 'text-slate-900 dark:text-slate-100',
 }
 

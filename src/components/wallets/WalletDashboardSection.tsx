@@ -33,6 +33,13 @@ export function WalletDashboardSection({
             value={formatCurrency(data.monthExpenses)}
             variant="negative"
           />
+          {data.creditCardExpenses > 0 && (
+            <StatCard
+              label="Credit-card expenses this month"
+              value={formatCurrency(data.creditCardExpenses)}
+              variant="warning"
+            />
+          )}
           <StatCard
             label="Transferred out"
             value={formatCurrency(data.transferredOut)}
@@ -42,7 +49,7 @@ export function WalletDashboardSection({
           <StatCard
             label="Net balance"
             value={formatCurrency(data.netBalance)}
-            hint="Income minus expenses minus transfers out"
+            hint="Income minus wallet-paid expenses minus transfers out"
             variant={data.netBalance >= 0 ? 'positive' : 'negative'}
           />
         </div>

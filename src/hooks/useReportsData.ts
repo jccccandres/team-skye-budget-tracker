@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useDataChangeListener } from '../lib/dataSync'
+import type { ExpensePaymentSource } from '../types/database'
 import { useAuth } from './useAuth'
 import { useWalletPeriodFinancials } from './useWalletPeriodFinancials'
 
@@ -13,6 +14,8 @@ export interface CategoryExpense {
   amount: number
   description: string | null
   date: string
+  paymentSource: ExpensePaymentSource
+  creditCardId: string | null
 }
 
 export interface TrendPoint {
@@ -32,6 +35,9 @@ interface ReportsData {
   weeklyTrend: TrendPoint[]
   totalIncome: number
   totalExpenses: number
+  /** Total of expenses paid by credit card in this period (also included
+   * in totalExpenses - broken out separately for display). */
+  creditCardExpenses: number
   transferredOut: number
   netBalance: number
 }
@@ -43,6 +49,7 @@ const emptyData: ReportsData = {
   weeklyTrend: [],
   totalIncome: 0,
   totalExpenses: 0,
+  creditCardExpenses: 0,
   transferredOut: 0,
   netBalance: 0,
 }
@@ -139,7 +146,14 @@ export function useReportsData(walletId: string | null, start: string, end: stri
     for (const row of expenseRows) {
       categoryMap.set(row.category, (categoryMap.get(row.category) ?? 0) + Number(row.amount))
       const list = expensesByCategory.get(row.category) ?? []
-      list.push({ id: row.id, amount: Number(row.amount), description: row.description, date: row.date })
+      list.push({
+        id: row.id,
+        amount: Number(row.amount),
+        description: row.description,
+        date: row.date,
+        paymentSource: row.payment_source,
+        creditCardId: row.credit_card_id,
+      })
       expensesByCategory.set(row.category, list)
     }
     for (const list of expensesByCategory.values()) {
@@ -159,6 +173,7 @@ export function useReportsData(walletId: string | null, start: string, end: stri
       weeklyTrend,
       totalIncome: financials.totalIncome,
       totalExpenses: financials.totalExpenses,
+      creditCardExpenses: financials.totalCreditCardExpenses,
       transferredOut: financials.transferredOut,
       netBalance: financials.netBalance,
     }

@@ -1,14 +1,23 @@
 import { EmptyState } from '../ui/EmptyState'
+import { useCreditCards } from '../../hooks/useCreditCards'
 import { listPanel } from '../../lib/classes'
 import { formatCurrency, formatDate } from '../../lib/format'
 import type { CategoryExpense } from '../../hooks/useReportsData'
 
 export function CategoryExpenseList({ expenses }: { expenses: CategoryExpense[] }) {
+  const { items: creditCards } = useCreditCards()
+
   if (expenses.length === 0) {
     return <EmptyState message="No expenses in this category for the selected range." />
   }
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0)
+
+  function paymentSourceLabel(expense: CategoryExpense): string {
+    if (expense.paymentSource !== 'credit_card') return 'Wallet'
+    const card = creditCards.find((c) => c.id === expense.creditCardId)
+    return card ? `Credit card · ${card.name}` : 'Credit card'
+  }
 
   return (
     <div>
@@ -25,8 +34,15 @@ export function CategoryExpenseList({ expenses }: { expenses: CategoryExpense[] 
               {expense.description && (
                 <p className="text-xs text-slate-500 dark:text-slate-400">{expense.description}</p>
               )}
+              <p className="text-xs text-slate-400 dark:text-slate-500">{paymentSourceLabel(expense)}</p>
             </div>
-            <span className="text-sm font-medium text-red-700 dark:text-red-400">
+            <span
+              className={`text-sm font-medium ${
+                expense.paymentSource === 'credit_card'
+                  ? 'text-amber-700 dark:text-amber-400'
+                  : 'text-red-700 dark:text-red-400'
+              }`}
+            >
               {formatCurrency(expense.amount)}
             </span>
           </li>

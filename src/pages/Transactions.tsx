@@ -4,6 +4,7 @@ import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { PageHeader, SecondaryButton } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
+import { useCreditCards } from '../hooks/useCreditCards'
 import { useDebts } from '../hooks/useDebts'
 import { useSavingsGoals } from '../hooks/useSavings'
 import { type CombinedTransaction, useTransactionsData } from '../hooks/useTransactionsData'
@@ -18,6 +19,8 @@ const typeBadgeClasses: Record<CombinedTransaction['type'], string> = {
   transfer: 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-400',
 }
 
+const creditCardBadgeClasses = 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400'
+
 const typeLabels: Record<CombinedTransaction['type'], string> = {
   income: 'Income',
   expense: 'Expense',
@@ -28,6 +31,7 @@ export function TransactionsPage() {
   const { wallets } = useWallets()
   const { items: goals } = useSavingsGoals()
   const { items: debts } = useDebts()
+  const { items: creditCards } = useCreditCards()
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
   const [monthOffset, setMonthOffset] = useState(0)
 
@@ -48,12 +52,23 @@ export function TransactionsPage() {
     return `${sourceLabel} → ${destinationLabel}`
   }
 
+  function paymentSourceLabel(txn: CombinedTransaction): string | null {
+    if (txn.type !== 'expense') return null
+    if (txn.paymentSource !== 'credit_card') return 'Wallet'
+    const card = creditCards.find((c) => c.id === txn.creditCardId)
+    return card ? `Credit card · ${card.name}` : 'Credit card'
+  }
+
   function rowAmountDisplay(txn: CombinedTransaction): { text: string; className: string } {
     if (txn.type === 'income') {
       return { text: `+${formatCurrency(txn.amount)}`, className: 'text-emerald-700 dark:text-emerald-400' }
     }
     if (txn.type === 'expense') {
-      return { text: `-${formatCurrency(txn.amount)}`, className: 'text-red-700 dark:text-red-400' }
+      const className =
+        txn.paymentSource === 'credit_card'
+          ? 'text-amber-700 dark:text-amber-400'
+          : 'text-red-700 dark:text-red-400'
+      return { text: `-${formatCurrency(txn.amount)}`, className }
     }
     const sign = txn.direction === 'in' ? '+' : '-'
     const className =
@@ -100,6 +115,14 @@ export function TransactionsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Income" value={formatCurrency(data.monthIncome)} variant="positive" />
             <StatCard label="Expenses" value={formatCurrency(data.monthExpenses)} variant="negative" />
+            {data.creditCardExpenses > 0 && (
+              <StatCard
+                label="Credit-card expenses"
+                value={formatCurrency(data.creditCardExpenses)}
+                hint="Included in expenses, excluded from balance"
+                variant="warning"
+              />
+            )}
             <StatCard
               label="Transferred"
               value={formatCurrency(data.transferredOut)}
@@ -109,7 +132,7 @@ export function TransactionsPage() {
             <StatCard
               label="Balance"
               value={formatCurrency(data.netBalance)}
-              hint="Income minus expenses minus transferred"
+              hint="Income minus wallet-paid expenses minus transferred"
               variant={data.netBalance >= 0 ? 'positive' : 'negative'}
             />
           </div>
@@ -124,12 +147,16 @@ export function TransactionsPage() {
               <ul className={listPanel}>
                 {data.transactions.map((txn) => {
                   const amount = rowAmountDisplay(txn)
+                  const paymentSource = paymentSourceLabel(txn)
+                  const isCreditCardExpense = txn.type === 'expense' && txn.paymentSource === 'credit_card'
                   return (
                     <li key={`${txn.type}-${txn.id}`} className="flex items-center justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadgeClasses[txn.type]}`}
+                            className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              isCreditCardExpense ? creditCardBadgeClasses : typeBadgeClasses[txn.type]
+                            }`}
                           >
                             {typeLabels[txn.type]}
                           </span>
@@ -140,6 +167,7 @@ export function TransactionsPage() {
                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                           {formatDate(txn.date)}
                           {txn.type === 'transfer' && txn.fee ? ` · ${formatCurrency(txn.fee)} fee` : ''}
+                          {paymentSource ? ` · ${paymentSource}` : ''}
                         </p>
                       </div>
                       <span className={`shrink-0 text-sm font-medium ${amount.className}`}>{amount.text}</span>

@@ -6,6 +6,7 @@ import { Modal } from '../components/ui/Modal'
 import { PageHeader, SecondaryButton } from '../components/ui/PageHeader'
 import { RecordCard, RecordCardList } from '../components/ui/RecordCard'
 import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
+import { useCreditCards } from '../hooks/useCreditCards'
 import { useExpenses } from '../hooks/useExpenses'
 import { useWallets } from '../hooks/useWallets'
 import {
@@ -24,8 +25,15 @@ export function ExpensesPage() {
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
   const { items, loading, error, online, pendingIds, create, update, remove } =
     useExpenses(activeWalletId)
+  const { items: creditCards } = useCreditCards()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
+
+  function paymentSourceLabel(expense: Expense): string {
+    if (expense.payment_source !== 'credit_card') return 'Wallet'
+    const card = creditCards.find((c) => c.id === expense.credit_card_id)
+    return card ? `Credit card · ${card.name}` : 'Credit card'
+  }
 
   function closeForm() {
     setShowForm(false)
@@ -82,15 +90,13 @@ export function ExpensesPage() {
                 title={expense.category}
                 subtitle={formatDate(expense.date)}
                 amount={formatCurrency(Number(expense.amount))}
-                amountVariant="expense"
+                amountVariant={expense.payment_source === 'credit_card' ? 'creditCard' : 'expense'}
                 meta={[
                   ...(expense.description
                     ? [{ label: 'Description', value: expense.description }]
                     : []),
                   ...(expense.transfer_id ? [{ label: 'Type', value: 'Transfer fee' }] : []),
-                  ...(expense.payment_source === 'credit_card'
-                    ? [{ label: 'Payment source', value: 'Credit card' }]
-                    : [{ label: 'Payment source', value: 'Wallet' }]),
+                  { label: 'Payment source', value: paymentSourceLabel(expense) },
                   ...(pendingIds.has(expense.id) ? [{ label: 'Sync', value: 'Not synced yet' }] : []),
                 ]}
                 onEdit={() => openEdit(expense)}
@@ -106,6 +112,7 @@ export function ExpensesPage() {
                   <th className={`${tableHeadCell} text-left`}>Date</th>
                   <th className={`${tableHeadCell} text-left`}>Category</th>
                   <th className={`${tableHeadCell} text-left`}>Description</th>
+                  <th className={`${tableHeadCell} text-left`}>Payment source</th>
                   <th className={`${tableHeadCell} text-right`}>Amount</th>
                   <th className={`${tableHeadCell} text-right`}>Actions</th>
                 </tr>
@@ -127,7 +134,16 @@ export function ExpensesPage() {
                     <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
                       {expense.description || '—'}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-red-700 dark:text-red-400">
+                    <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                      {paymentSourceLabel(expense)}
+                    </td>
+                    <td
+                      className={`whitespace-nowrap px-4 py-3 text-right text-sm font-medium ${
+                        expense.payment_source === 'credit_card'
+                          ? 'text-amber-700 dark:text-amber-400'
+                          : 'text-red-700 dark:text-red-400'
+                      }`}
+                    >
                       {formatCurrency(Number(expense.amount))}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right text-sm">

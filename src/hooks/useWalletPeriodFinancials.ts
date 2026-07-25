@@ -7,9 +7,17 @@ import { sumTransfersOut, useTransfers } from './useTransfers'
 export interface WalletPeriodFinancials {
   incomeRows: Income[]
   expenseRows: Expense[]
+  /** All expense rows (including those paid by credit card) */
   totalIncome: number
   totalExpenses: number
+  /** Expenses that are paid from a wallet (not credit-card-paid) */
+  totalExpensesExcludingCard: number
+  /** Total of expenses paid using credit cards */
+  totalCreditCardExpenses: number
+  /** Expense rows that were paid using a credit card */
+  creditCardExpenseRows: Expense[]
   transferredOut: number
+  /** Net balance that excludes credit-card-paid expenses */
   netBalance: number
 }
 
@@ -18,6 +26,9 @@ const emptyData: WalletPeriodFinancials = {
   expenseRows: [],
   totalIncome: 0,
   totalExpenses: 0,
+  totalExpensesExcludingCard: 0,
+  totalCreditCardExpenses: 0,
+  creditCardExpenseRows: [],
   transferredOut: 0,
   netBalance: 0,
 }
@@ -99,19 +110,27 @@ export function useWalletPeriodFinancials(
   const data = useMemo<WalletPeriodFinancials>(() => {
     if (!user) return emptyData
 
-    const totalIncome = incomeRows.reduce((sum, r) => sum + Number(r.amount), 0)
-    const totalExpenses = expenseRows.reduce((sum, r) => sum + Number(r.amount), 0)
-    const transferredOut = sumTransfersOut(transfers, walletId ?? null, start, end, user.id)
+      const totalIncome = incomeRows.reduce((sum, r) => sum + Number(r.amount), 0)
 
-    return {
-      incomeRows,
-      expenseRows,
-      totalIncome,
-      totalExpenses,
-      transferredOut,
-      netBalance: totalIncome - totalExpenses - transferredOut,
-    }
-  }, [user, walletId, start, end, incomeRows, expenseRows, transfers])
+      const totalExpenses = expenseRows.reduce((sum, r) => sum + Number(r.amount), 0)
+      const creditCardExpenseRows = expenseRows.filter((r) => r.payment_source === 'credit_card')
+      const totalCreditCardExpenses = creditCardExpenseRows.reduce((sum, r) => sum + Number(r.amount), 0)
+      const totalExpensesExcludingCard = totalExpenses - totalCreditCardExpenses
+
+      const transferredOut = sumTransfersOut(transfers, walletId ?? null, start, end, user.id)
+
+      return {
+        incomeRows,
+        expenseRows,
+        totalIncome,
+        totalExpenses,
+        totalExpensesExcludingCard,
+        totalCreditCardExpenses,
+        creditCardExpenseRows,
+        transferredOut,
+        netBalance: totalIncome - totalExpensesExcludingCard - transferredOut,
+      }
+    }, [user, walletId, start, end, incomeRows, expenseRows, transfers])
 
   return {
     data,

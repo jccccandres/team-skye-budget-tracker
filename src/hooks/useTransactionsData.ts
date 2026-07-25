@@ -1,13 +1,22 @@
 import { useMemo } from 'react'
 import { monthRange } from '../lib/format'
 import { useDataChangeListener } from '../lib/dataSync'
-import type { Transfer } from '../types/database'
+import type { ExpensePaymentSource, Transfer } from '../types/database'
 import { useAuth } from './useAuth'
 import { useWalletPeriodFinancials } from './useWalletPeriodFinancials'
 
 export type CombinedTransaction =
   | { type: 'income'; id: string; date: string; createdAt: string; amount: number; label: string }
-  | { type: 'expense'; id: string; date: string; createdAt: string; amount: number; label: string }
+  | {
+      type: 'expense'
+      id: string
+      date: string
+      createdAt: string
+      amount: number
+      label: string
+      paymentSource: ExpensePaymentSource
+      creditCardId: string | null
+    }
   | {
       type: 'transfer'
       id: string
@@ -22,6 +31,9 @@ export type CombinedTransaction =
 interface TransactionsData {
   monthIncome: number
   monthExpenses: number
+  /** Total of this month's expenses paid by credit card (also included in
+   * monthExpenses - broken out separately for display). */
+  creditCardExpenses: number
   transferredOut: number
   netBalance: number
   transactions: CombinedTransaction[]
@@ -30,6 +42,7 @@ interface TransactionsData {
 const emptyData: TransactionsData = {
   monthIncome: 0,
   monthExpenses: 0,
+  creditCardExpenses: 0,
   transferredOut: 0,
   netBalance: 0,
   transactions: [],
@@ -94,6 +107,8 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
           createdAt: r.created_at,
           amount: Number(r.amount),
           label: r.description ? `${r.category} · ${r.description}` : r.category,
+          paymentSource: r.payment_source,
+          creditCardId: r.credit_card_id,
         })),
       ...relevantTransfers.map((t) => {
         const direction: 'in' | 'out' =
@@ -122,6 +137,7 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
     return {
       monthIncome: financials.totalIncome,
       monthExpenses: financials.totalExpenses,
+      creditCardExpenses: financials.totalCreditCardExpenses,
       transferredOut: financials.transferredOut,
       netBalance: financials.netBalance,
       transactions,

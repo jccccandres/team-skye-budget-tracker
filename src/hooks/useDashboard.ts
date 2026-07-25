@@ -27,6 +27,8 @@ export interface CreditCardSummary {
 export interface DashboardData {
   monthIncome: number
   monthExpenses: number
+  /** Total of expenses paid by credit card this month */
+  creditCardExpenses: number
   transferredOut: number
   netBalance: number
   hasDebts: boolean
@@ -38,7 +40,10 @@ export interface DashboardData {
   creditCards: CreditCardSummary[]
 }
 
-type DashboardRestData = Omit<DashboardData, 'monthIncome' | 'monthExpenses' | 'transferredOut' | 'netBalance'>
+type DashboardRestData = Omit<
+  DashboardData,
+  'monthIncome' | 'monthExpenses' | 'creditCardExpenses' | 'transferredOut' | 'netBalance'
+>
 
 const emptyBreakdown: Record<DebtCategory, DebtBreakdown> = {
   other: { remaining: 0, monthly: 0 },
@@ -260,7 +265,13 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
     () => ({
       ...data,
       monthIncome: financials.totalIncome,
+      // Includes credit-card-paid expenses (credit card spend is broken
+      // out separately in `creditCardExpenses` for display, but is still
+      // part of the overall expense total). Net balance separately
+      // excludes it since it doesn't affect the wallet until the bill is
+      // actually paid.
       monthExpenses: financials.totalExpenses,
+      creditCardExpenses: financials.totalCreditCardExpenses,
       transferredOut: financials.transferredOut,
       netBalance: financials.netBalance,
     }),
