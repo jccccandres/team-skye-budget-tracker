@@ -12,19 +12,26 @@ import {
 } from '../../lib/transfers'
 import { EmptyState } from '../ui/EmptyState'
 
-export function TransferHistory() {
+export function TransferHistory({ start, end }: { start?: string; end?: string } = {}) {
   const { user } = useAuth()
   const { wallets } = useWallets()
   const { items: goals } = useSavingsGoals()
   const { items: debts } = useDebts()
-  const { items, creatorEmails, loading } = useTransfers()
+  const { items: allItems, creatorEmails, loading } = useTransfers()
+
+  const items =
+    start && end ? allItems.filter((t) => t.date >= start && t.date <= end) : allItems
 
   if (loading) {
     return <p className="text-sm text-slate-500 dark:text-slate-400">Loading transfers…</p>
   }
 
   if (items.length === 0) {
-    return <EmptyState message="No transfers yet." />
+    return (
+      <EmptyState
+        message={start && end ? 'No transfers in this month.' : 'No transfers yet.'}
+      />
+    )
   }
 
   return (

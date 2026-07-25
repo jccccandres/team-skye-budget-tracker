@@ -94,9 +94,10 @@ function cycleRangeForCard(now: Date, cutoffDay: number): { start: string; end: 
  * signed-in user's personal dashboard, which includes debts.
  * @param referenceDate - Any date within the month to show. Defaults to
  * today, so the dashboard shows the current month unless a specific month
- * is being browsed. Debts, credit card cycles, and savings always reflect
- * their actual current state regardless of this - only the income/expense/
- * transfer flow and the recent expenses list are month-scoped.
+ * is being browsed. Credit card billing cycles and the recent expenses list
+ * are scoped to this month too. Debts and savings don't have historical
+ * snapshots in the database, so they always reflect their actual current
+ * running balance regardless of the month being browsed.
  */
 export function useDashboard(walletId?: string | null, referenceDate: Date = new Date()) {
   const { user } = useAuth()
@@ -164,7 +165,10 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
 
     const debts = (debtsResult.data as Debt[]) ?? []
     const creditCards = (creditCardsResult.data as CreditCard[]) ?? []
-    const now = new Date()
+    // Use the browsed month (not the real "today") so billing cycles,
+    // due dates, and billable amounts reflect the month being viewed
+    // instead of always showing the current real-world cycle.
+    const now = referenceDate
     const monthCardExpenses = (creditCardExpensesResult.data as Expense[]) ?? []
 
     const totalDebtRemaining = debts.reduce(

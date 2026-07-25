@@ -311,7 +311,7 @@ export function DashboardPage() {
             <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
               Transfer history
             </h3>
-            <TransferHistory />
+            <TransferHistory start={start} end={end} />
           </section>
         </>
       )}
