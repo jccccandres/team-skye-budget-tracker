@@ -6,17 +6,35 @@ import { QuickAddFab } from './QuickAddFab'
 import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../hooks/useAuth'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/expenses', label: 'Expenses' },
-  { to: '/income', label: 'Income' },
-  { to: '/transactions', label: 'Transactions' },
-  { to: '/debts', label: 'Debts' },
-  { to: '/credit-cards', label: 'Credit cards' },
-  { to: '/savings', label: 'Savings' },
-  { to: '/reports', label: 'Reports' },
-  { to: '/wallets', label: 'Wallets' },
-  { to: '/grocery', label: 'Grocery lists' },
+const navGroups = [
+  {
+    label: 'Overview',
+    items: [
+      { to: '/dashboard', label: 'Dashboard' },
+      { to: '/reports', label: 'Reports' },
+    ],
+  },
+  {
+    label: 'Money',
+    items: [
+      { to: '/expenses', label: 'Expenses' },
+      { to: '/income', label: 'Income' },
+      { to: '/transactions', label: 'Transactions' },
+    ],
+  },
+  {
+    label: 'Accounts',
+    items: [
+      { to: '/wallets', label: 'Wallets' },
+      { to: '/credit-cards', label: 'Credit cards' },
+      { to: '/debts', label: 'Debts' },
+      { to: '/savings', label: 'Savings' },
+    ],
+  },
+  {
+    label: 'Tools',
+    items: [{ to: '/grocery', label: 'Grocery lists' }],
+  },
 ] as const
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
@@ -40,10 +58,22 @@ export function Layout() {
         </div>
 
         <nav className="flex-1 space-y-1 p-3">
-          {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} className={navLinkClass}>
-              {item.label}
-            </NavLink>
+          {navGroups.map((group, index) => (
+            <div
+              key={group.label}
+              className={index > 0 ? 'border-t border-slate-100 pt-3 dark:border-slate-800' : undefined}
+            >
+              <p className="px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                {group.label}
+              </p>
+              <div className="space-y-0.5 pb-2">
+                {group.items.map((item) => (
+                  <NavLink key={item.to} to={item.to} className={navLinkClass}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
