@@ -10,6 +10,7 @@ import {
 } from '../../types/database'
 import { todayISO } from '../../lib/format'
 import { useCreditCards } from '../../hooks/useCreditCards'
+import { useToast } from '../../hooks/useToast'
 
 interface ExpenseFormProps {
   initial?: Expense
@@ -19,6 +20,7 @@ interface ExpenseFormProps {
 
 export function ExpenseForm({ initial, onSubmit, onCancel }: ExpenseFormProps) {
   const { items: cards } = useCreditCards()
+  const { showToast } = useToast()
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? '')
   const [category, setCategory] = useState(initial?.category ?? EXPENSE_CATEGORIES[0])
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -62,7 +64,10 @@ export function ExpenseForm({ initial, onSubmit, onCancel }: ExpenseFormProps) {
     })
 
     if (result.error) setError(result.error)
-    else onCancel()
+    else {
+      showToast(initial ? 'Expense updated' : 'Expense added')
+      onCancel()
+    }
 
     setSubmitting(false)
   }

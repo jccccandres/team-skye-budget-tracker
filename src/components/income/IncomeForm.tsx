@@ -4,6 +4,7 @@ import { INCOME_FREQUENCIES, type Income, type IncomeInsert } from '../../types/
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { FormField, SelectInput, TextInput } from '../ui/FormField'
 import { PrimaryButton } from '../ui/PageHeader'
+import { useToast } from '../../hooks/useToast'
 
 interface IncomeFormProps {
   initial?: Income
@@ -12,6 +13,7 @@ interface IncomeFormProps {
 }
 
 export function IncomeForm({ initial, onSubmit, onCancel }: IncomeFormProps) {
+  const { showToast } = useToast()
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? '')
   const [source, setSource] = useState(initial?.source ?? '')
   const [frequency, setFrequency] = useState(initial?.frequency ?? INCOME_FREQUENCIES[0])
@@ -45,7 +47,10 @@ export function IncomeForm({ initial, onSubmit, onCancel }: IncomeFormProps) {
     })
 
     if (result.error) setError(result.error)
-    else onCancel()
+    else {
+      showToast(initial ? 'Income updated' : 'Income added')
+      onCancel()
+    }
 
     setSubmitting(false)
   }

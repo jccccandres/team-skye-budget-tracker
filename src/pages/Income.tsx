@@ -8,6 +8,7 @@ import { RecordCard, RecordCardList } from '../components/ui/RecordCard'
 import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
 import { useIncome } from '../hooks/useIncome'
 import { useWallets } from '../hooks/useWallets'
+import { useToast } from '../hooks/useToast'
 import {
   tableBody,
   tableElement,
@@ -25,6 +26,7 @@ export function IncomePage() {
   const { items, loading, error, create, update, remove } = useIncome(activeWalletId)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Income | null>(null)
+  const { showToast } = useToast()
 
   function closeForm() {
     setShowForm(false)
@@ -45,6 +47,7 @@ export function IncomePage() {
       return
     }
     await remove(income.id)
+    showToast('Income deleted', 'info')
   }
 
   const total = items.reduce((sum, item) => sum + Number(item.amount), 0)

@@ -9,6 +9,7 @@ import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
 import { useCreditCards } from '../hooks/useCreditCards'
 import { useExpenses } from '../hooks/useExpenses'
 import { useWallets } from '../hooks/useWallets'
+import { useToast } from '../hooks/useToast'
 import {
   tableBody,
   tableElement,
@@ -28,6 +29,7 @@ export function ExpensesPage() {
   const { items: creditCards } = useCreditCards()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
+  const { showToast } = useToast()
 
   function paymentSourceLabel(expense: Expense): string {
     if (expense.payment_source !== 'credit_card') return 'Wallet'
@@ -54,6 +56,7 @@ export function ExpensesPage() {
       return
     }
     await remove(expense.id)
+    showToast('Expense deleted', 'info')
   }
 
   const total = items.reduce((sum, item) => sum + Number(item.amount), 0)

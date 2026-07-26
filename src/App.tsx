@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ConfigError } from './components/ConfigError'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { ToastProvider } from './contexts/ToastContext'
 import { Layout } from './components/Layout'
 import { isSupabaseConfigured } from './lib/supabaseClient'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -26,7 +27,8 @@ export default function App() {
       {!isSupabaseConfigured ? (
         <ConfigError />
       ) : (
-        <AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
           {/* HashRouter avoids 404s on GitHub Pages refresh for project sites */}
           <HashRouter>
             <Routes>
@@ -54,7 +56,8 @@ export default function App() {
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </HashRouter>
-        </AuthProvider>
+          </AuthProvider>
+        </ToastProvider>
       )}
     </ThemeProvider>
   )

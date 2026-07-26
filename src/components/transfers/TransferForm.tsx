@@ -7,6 +7,7 @@ import { useDebts } from '../../hooks/useDebts'
 import { useSavingsGoals } from '../../hooks/useSavings'
 import { useTransfers } from '../../hooks/useTransfers'
 import { useWallets } from '../../hooks/useWallets'
+import { useToast } from '../../hooks/useToast'
 import { todayISO } from '../../lib/format'
 import type { TransferDestinationType, TransferSourceType } from '../../types/database'
 
@@ -34,6 +35,7 @@ export function TransferForm({
   const { items: debts } = useDebts()
   const { items: creditCards } = useCreditCards()
   const { createTransfer } = useTransfers()
+  const { showToast } = useToast()
 
   const [sourceType, setSourceType] = useState<TransferSourceType>('personal')
   const [sourceWalletId, setSourceWalletId] = useState(wallets[0]?.id ?? '')
@@ -169,7 +171,18 @@ export function TransferForm({
     setSubmitting(false)
 
     if (result.error) setError(result.error)
-    else onDone()
+    else {
+      const successMessage =
+        destinationType === 'debt'
+          ? 'Debt payment recorded'
+          : destinationType === 'credit_card'
+            ? 'Credit card payment recorded'
+            : destinationType === 'savings_goal'
+              ? 'Transferred to savings goal'
+              : 'Transfer complete'
+      showToast(successMessage)
+      onDone()
+    }
   }
 
   return (
