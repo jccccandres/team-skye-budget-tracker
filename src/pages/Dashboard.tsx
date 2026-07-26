@@ -14,6 +14,7 @@ import { listPanel } from '../lib/classes'
 import { formatCurrency, formatDate, formatMonthDay, monthRange } from '../lib/format'
 import { debtCategoryLabel, type DebtCategory, type Wallet } from '../types/database'
 import type { DebtBreakdown } from '../hooks/useDashboard'
+import type { WalletWithMembers } from '../hooks/useWallets'
 
 function expenseSourceLabel(walletId: string | null, wallets: Wallet[]): string {
   if (!walletId) return 'Personal'
@@ -31,10 +32,173 @@ const debtCategoryCards: { category: DebtCategory; label: string }[] = [
   { category: 'other', label: 'Other debt remaining' },
 ]
 
+function CollapsibleWalletSection({
+  wallet,
+  referenceDate,
+  data,
+  isExpanded,
+  onToggle,
+}: {
+  wallet: WalletWithMembers
+  referenceDate: Date
+  data: ReturnType<typeof useDashboard>['data']
+  isExpanded: boolean
+  onToggle: () => void
+}) {
+  return (
+    <section className="mt-8">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="mb-3 flex items-center justify-between w-full group"
+      >
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {wallet.name}
+          {wallet.members.length > 1 ? ' (shared)' : ''}
+        </h3>
+        <span
+          className="text-lg text-slate-400 transition-transform group-hover:text-slate-600 dark:group-hover:text-slate-300"
+          style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        >
+          ▼
+        </span>
+      </button>
+
+      {isExpanded ? (
+        <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: '1000px' }}>
+          <WalletDashboardSection walletData={data} />
+        </div>
+      ) : (
+        <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: '125px' }}>
+          <WalletNetBalanceCard walletData={data} />
+        </div>
+      )}
+    </section>
+  )
+}
+
+function PersonalDashboardSection({
+  data,
+}: {
+  data: ReturnType<typeof useDashboard>['data']
+}) {
+  const { start, end } = monthRange(new Date())
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StatCard
+        label="Income this month"
+        value={formatCurrency(data.monthIncome)}
+        hint={`${formatDate(start)} – ${formatDate(end)}`}
+        variant="positive"
+      />
+      <StatCard
+        label="Expenses this month"
+        value={formatCurrency(data.monthExpenses)}
+        hint={`${formatDate(start)} – ${formatDate(end)}`}
+        variant="negative"
+        breakdown={
+          data.creditCardExpenses > 0
+            ? { label: 'Credit card', value: formatCurrency(data.creditCardExpenses), variant: 'warning' }
+            : undefined
+        }
+      />
+      <StatCard
+        label="Transferred out"
+        value={formatCurrency(data.transferredOut)}
+        hint="Your transfers to wallets/savings this month"
+        variant={data.transferredOut > 0 ? 'negative' : 'default'}
+      />
+      <StatCard
+        label="Net balance"
+        value={formatCurrency(data.netBalance)}
+        hint="Income minus wallet-paid expenses minus transfers out"
+        variant={data.netBalance >= 0 ? 'positive' : 'negative'}
+      />
+    </div>
+  )
+}
+
+function PersonalNetBalanceCard({
+  data,
+}: {
+  data: ReturnType<typeof useDashboard>['data']
+}) {
+  return (
+    <StatCard
+      label="Net balance"
+      value={formatCurrency(data.netBalance)}
+      hint="Income minus wallet-paid expenses minus transfers out"
+      variant={data.netBalance >= 0 ? 'positive' : 'negative'}
+    />
+  )
+}
+
+function WalletNetBalanceCard({
+  walletData,
+}: {
+  walletData: ReturnType<typeof useDashboard>['data']
+}) {
+  return (
+    <StatCard
+      label="Net balance"
+      value={formatCurrency(walletData.netBalance)}
+      hint="Income minus wallet-paid expenses minus transfers out"
+      variant={walletData.netBalance >= 0 ? 'positive' : 'negative'}
+    />
+  )
+}
+
+// This component calls useDashboard for each wallet,
+// so all wallet data is preloaded when the wallets render
+function WalletWithPreloadedData({
+  wallet,
+  referenceDate,
+  isExpanded,
+  onToggle,
+}: {
+  wallet: WalletWithMembers
+  referenceDate: Date
+  isExpanded: boolean
+  onToggle: () => void
+}) {
+  const { data } = useDashboard(wallet.id, referenceDate)
+  return (
+    <CollapsibleWalletSection
+      wallet={wallet}
+      referenceDate={referenceDate}
+      data={data}
+      isExpanded={isExpanded}
+      onToggle={onToggle}
+    />
+  )
+}
+
+// Desktop wallet section (always expanded, no toggle)
+function WalletDesktopSection({
+  wallet,
+  referenceDate,
+}: {
+  wallet: WalletWithMembers
+  referenceDate: Date
+}) {
+  const { data } = useDashboard(wallet.id, referenceDate)
+  return (
+    <section className="mt-8">
+      <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
+        {wallet.name}
+        {wallet.members.length > 1 ? ' (shared)' : ''}
+      </h3>
+      <WalletDashboardSection walletData={data} />
+    </section>
+  )
+}
+
 export function DashboardPage() {
   // 0 = current month, -1 = last month, etc. Capped so you can't browse
   // into the future.
   const [monthOffset, setMonthOffset] = useState(0)
+  const [expandedWallets, setExpandedWallets] = useState(new Set<string>())
+  const [isPersonalExpanded, setIsPersonalExpanded] = useState(false)
 
   const referenceDate = useMemo(() => {
     const d = new Date()
@@ -82,43 +246,78 @@ export function DashboardPage() {
         <p className="text-sm text-slate-500 dark:text-slate-400">Loading dashboard…</p>
       ) : (
         <>
-          {wallets.map((wallet) => (
-            <WalletDashboardSection key={wallet.id} wallet={wallet} referenceDate={referenceDate} />
-          ))}
-
-          <h3 className="mb-3 mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Personal</h3>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              label="Income this month"
-              value={formatCurrency(data.monthIncome)}
-              hint={`${formatDate(start)} – ${formatDate(end)}`}
-              variant="positive"
-            />
-            <StatCard
-              label="Expenses this month"
-              value={formatCurrency(data.monthExpenses)}
-              hint={`${formatDate(start)} – ${formatDate(end)}`}
-              variant="negative"
-              breakdown={
-                data.creditCardExpenses > 0
-                  ? { label: 'Credit card', value: formatCurrency(data.creditCardExpenses), variant: 'warning' }
-                  : undefined
-              }
-            />
-            <StatCard
-              label="Transferred out"
-              value={formatCurrency(data.transferredOut)}
-              hint="Your transfers to wallets/savings this month"
-              variant={data.transferredOut > 0 ? 'negative' : 'default'}
-            />
-            <StatCard
-              label="Net balance"
-              value={formatCurrency(data.netBalance)}
-              hint="Income minus wallet-paid expenses minus transfers out"
-              variant={data.netBalance >= 0 ? 'positive' : 'negative'}
-            />
+          {/* Desktop: Always expanded */}
+          <div className="hidden lg:block">
+            <h3 className="mb-3 mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Personal</h3>
+            <PersonalDashboardSection data={data} />
           </div>
+
+          {/* Mobile: Collapsible */}
+          <section className="block lg:hidden mt-8">
+            <button
+              type="button"
+              onClick={() => setIsPersonalExpanded(!isPersonalExpanded)}
+              className="mb-3 flex items-center justify-between w-full group"
+            >
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Personal
+              </h3>
+              <span
+                className="text-lg text-slate-400 transition-transform group-hover:text-slate-600 dark:group-hover:text-slate-300"
+                style={{ transform: isPersonalExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+              >
+                ▼
+              </span>
+            </button>
+
+            {isPersonalExpanded ? (
+              <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: '1000px' }}>
+                <PersonalDashboardSection data={data} />
+              </div>
+            ) : (
+              <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: '125px' }}>
+                <PersonalNetBalanceCard data={data} />
+              </div>
+            )}
+          </section>
+
+          {wallets.length > 0 && (
+            <>
+              {/* Desktop: Always expanded */}
+              <div className="hidden lg:block">
+                {wallets.map((wallet) => (
+                  <WalletDesktopSection
+                    key={wallet.id}
+                    wallet={wallet}
+                    referenceDate={referenceDate}
+                  />
+                ))}
+              </div>
+
+              {/* Mobile: Collapsible */}
+              <div className="block lg:hidden">
+                {wallets.map((wallet) => (
+                  <WalletWithPreloadedData
+                    key={wallet.id}
+                    wallet={wallet}
+                    referenceDate={referenceDate}
+                    isExpanded={expandedWallets.has(wallet.id)}
+                    onToggle={() => {
+                      setExpandedWallets((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(wallet.id)) {
+                          next.delete(wallet.id)
+                        } else {
+                          next.add(wallet.id)
+                        }
+                        return next
+                      })
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
           <section className="mt-8">
             <div className="mb-3 flex items-center justify-between">
