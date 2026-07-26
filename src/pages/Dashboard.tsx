@@ -34,13 +34,11 @@ const debtCategoryCards: { category: DebtCategory; label: string }[] = [
 
 function CollapsibleWalletSection({
   wallet,
-  referenceDate,
   data,
   isExpanded,
   onToggle,
 }: {
   wallet: WalletWithMembers
-  referenceDate: Date
   data: ReturnType<typeof useDashboard>['data']
   isExpanded: boolean
   onToggle: () => void
@@ -165,7 +163,6 @@ function WalletWithPreloadedData({
   return (
     <CollapsibleWalletSection
       wallet={wallet}
-      referenceDate={referenceDate}
       data={data}
       isExpanded={isExpanded}
       onToggle={onToggle}
