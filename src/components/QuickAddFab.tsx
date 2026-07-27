@@ -94,7 +94,7 @@ export function QuickAddFab() {
           aria-label={expanded ? 'Close quick add menu' : 'Quick add'}
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
-          className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-3xl font-light text-white shadow-lg transition-transform hover:scale-105 dark:bg-slate-100 dark:text-slate-900"
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-3xl font-light text-white shadow-lg transition-transform hover:scale-105 dark:bg-slate-100 dark:text-slate-900 opacity-40 hover:opacity-100"
         >
           <span
             className="inline-block transition-transform duration-200"

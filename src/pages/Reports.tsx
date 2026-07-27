@@ -18,7 +18,6 @@ export function ReportsPage() {
 
   const [preset, setPreset] = useState<ReportPreset | 'custom'>('thisMonth')
   const [range, setRange] = useState(() => reportPresetRange('thisMonth'))
-  const [granularity, setGranularity] = useState<'weekly' | 'monthly'>('weekly')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   function handlePresetChange(p: ReportPreset) {
@@ -32,8 +31,6 @@ export function ReportsPage() {
   }
 
   const { data, loading, error } = useReportsData(activeWalletId, range.start, range.end)
-
-  const trendPoints = granularity === 'weekly' ? data.weeklyTrend : data.monthlyTrend
 
   return (
     <div>
@@ -100,40 +97,6 @@ export function ReportsPage() {
             </div>
           </section>
 
-          <section className="mt-8">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Income vs expenses
-              </h3>
-              <div className="flex gap-1 rounded-md bg-slate-100 p-1 dark:bg-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setGranularity('weekly')}
-                  className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                    granularity === 'weekly'
-                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100'
-                      : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  Weekly
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGranularity('monthly')}
-                  className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                    granularity === 'monthly'
-                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100'
-                      : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  Monthly
-                </button>
-              </div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-              <TrendChart points={trendPoints} granularity={granularity} />
-            </div>
-          </section>
         </>
       )}
 
