@@ -1,38 +1,39 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import { BarChart3, FileText, DollarSign, Wallet, CreditCard, TrendingDown, PiggyBank, ShoppingCart } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../hooks/useAuth'
 
 const menuNavGroups = [
   {
     label: 'Overview',
-    items: [{ to: '/reports', label: 'Reports' }],
+    items: [{ to: '/reports', label: 'Reports', icon: BarChart3 }],
   },
   {
     label: 'Money',
     items: [
-      { to: '/expenses', label: 'Expenses' },
-      { to: '/income', label: 'Income' },
+      { to: '/expenses', label: 'Expenses', icon: FileText },
+      { to: '/income', label: 'Income', icon: DollarSign },
     ],
   },
   {
     label: 'Accounts',
     items: [
-      { to: '/wallets', label: 'Wallets' },
-      { to: '/credit-cards', label: 'Credit cards' },
-      { to: '/debts', label: 'Debts' },
-      { to: '/savings', label: 'Savings' },
+      { to: '/wallets', label: 'Wallets', icon: Wallet },
+      { to: '/credit-cards', label: 'Credit cards', icon: CreditCard },
+      { to: '/debts', label: 'Debts', icon: TrendingDown },
+      { to: '/savings', label: 'Savings', icon: PiggyBank },
     ],
   },
   {
     label: 'Tools',
-    items: [{ to: '/grocery', label: 'Grocery lists' }],
+    items: [{ to: '/grocery', label: 'Grocery lists', icon: ShoppingCart }],
   },
 ] as const
 
 function menuNavClass({ isActive }: { isActive: boolean }) {
   return [
-    'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
+    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
     isActive
       ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100',
@@ -91,16 +92,20 @@ export function MobileHeader() {
                     {group.label}
                   </p>
                   <div className="space-y-0.5 pb-2">
-                    {group.items.map((item) => (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        className={menuNavClass}
-                        onClick={closeMenu}
-                      >
-                        {item.label}
-                      </NavLink>
-                    ))}
+                    {group.items.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          className={menuNavClass}
+                          onClick={closeMenu}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {item.label}
+                        </NavLink>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
