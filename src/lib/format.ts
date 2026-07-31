@@ -34,7 +34,7 @@ export function formatDateTime(timestamp: string): string {
 }
 
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
+  return dateToLocalISO(new Date())
 }
 
 export type ReportPreset = 'thisMonth' | 'lastMonth' | 'thisYear' | 'lastYear' | 'allTime'
@@ -51,38 +51,47 @@ export const REPORT_PRESET_LABELS: Record<ReportPreset, string> = {
  * the trend chart doesn't end up with hundreds of empty month buckets. */
 export function reportPresetRange(preset: ReportPreset): { start: string; end: string } {
   const now = new Date()
-  const end = now.toISOString().slice(0, 10)
+  const end = dateToLocalISO(now)
 
   if (preset === 'thisMonth') {
-    return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10), end }
+    return { start: dateToLocalISO(new Date(now.getFullYear(), now.getMonth(), 1)), end }
   }
 
   if (preset === 'lastMonth') {
     const start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
-    return { start: start.toISOString().slice(0, 10), end: lastMonthEnd.toISOString().slice(0, 10) }
+    return { start: dateToLocalISO(start), end: dateToLocalISO(lastMonthEnd) }
   }
 
   if (preset === 'thisYear') {
-    return { start: new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10), end }
+    return { start: dateToLocalISO(new Date(now.getFullYear(), 0, 1)), end }
   }
 
   if (preset === 'lastYear') {
     const start = new Date(now.getFullYear() - 1, 0, 1)
     const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31)
-    return { start: start.toISOString().slice(0, 10), end: lastYearEnd.toISOString().slice(0, 10) }
+    return { start: dateToLocalISO(start), end: dateToLocalISO(lastYearEnd) }
   }
 
   // allTime
   const start = new Date(now.getFullYear(), now.getMonth() - 23, 1)
-  return { start: start.toISOString().slice(0, 10), end }
+  return { start: dateToLocalISO(start), end }
 }
+
+function dateToLocalISO(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export { dateToLocalISO }
 
 export function monthRange(referenceDate: Date = new Date()): { start: string; end: string } {
   const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1)
   const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0)
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+    start: dateToLocalISO(start),
+    end: dateToLocalISO(end),
   }
 }

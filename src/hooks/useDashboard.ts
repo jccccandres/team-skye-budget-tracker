@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { monthRange } from '../lib/format'
+import { monthRange, dateToLocalISO } from '../lib/format'
 import { supabase } from '../lib/supabaseClient'
 import { useDataChangeListener } from '../lib/dataSync'
 import type { CreditCard, Debt, DebtCategory, Expense } from '../types/database'
@@ -83,8 +83,8 @@ function cycleRangeForCard(now: Date, cutoffDay: number): { start: string; end: 
   const end = new Date(now.getFullYear(), now.getMonth(), cutoffDay)
 
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+    start: dateToLocalISO(start),
+    end: dateToLocalISO(end),
   }
 }
 
@@ -195,8 +195,8 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
       nextStartDate.setMonth(nextStartDate.getMonth() + 1)
       const nextEndDate = new Date(end)
       nextEndDate.setMonth(nextEndDate.getMonth() + 1)
-      const nextStart = nextStartDate.toISOString().slice(0, 10)
-      const nextEnd = nextEndDate.toISOString().slice(0, 10)
+      const nextStart = dateToLocalISO(nextStartDate)
+      const nextEnd = dateToLocalISO(nextEndDate)
 
       const current = monthCardExpenses
         .filter(
@@ -219,8 +219,8 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
       acc[card.id] = {
         current,
         next,
-        dueThisMonth: dueDateForCycle(new Date(end), Number(card.due_day)).toISOString().slice(0, 10),
-        dueNextMonth: dueDateForCycle(nextEndDate, Number(card.due_day)).toISOString().slice(0, 10),
+        dueThisMonth: dateToLocalISO(dueDateForCycle(new Date(end), Number(card.due_day))),
+        dueNextMonth: dateToLocalISO(dueDateForCycle(nextEndDate, Number(card.due_day))),
       }
 
       return acc

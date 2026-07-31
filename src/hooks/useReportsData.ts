@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useDataChangeListener } from '../lib/dataSync'
+import { dateToLocalISO } from '../lib/format'
 import type { ExpensePaymentSource } from '../types/database'
 import { useAuth } from './useAuth'
 import { useWalletPeriodFinancials } from './useWalletPeriodFinancials'
@@ -65,7 +66,7 @@ function weekKey(date: string): string {
   const day = dt.getDay() // 0 = Sunday
   const diffToMonday = day === 0 ? -6 : 1 - day
   dt.setDate(dt.getDate() + diffToMonday)
-  return dt.toISOString().slice(0, 10)
+  return dateToLocalISO(dt)
 }
 
 /** Every YYYY-MM between start and end (inclusive), so months with zero
@@ -91,7 +92,7 @@ function weekKeysInRange(start: string, end: string): string[] {
   const endDate = new Date(weekKey(end))
 
   while (cursor <= endDate) {
-    keys.push(cursor.toISOString().slice(0, 10))
+    keys.push(dateToLocalISO(cursor))
     cursor.setDate(cursor.getDate() + 7)
   }
 
