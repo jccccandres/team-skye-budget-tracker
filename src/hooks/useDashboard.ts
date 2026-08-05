@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { monthRange, dateToLocalISO } from '../lib/format'
+import { dateToLocalISO } from '../lib/format'
 import { supabase } from '../lib/supabaseClient'
 import { useDataChangeListener } from '../lib/dataSync'
 import type { CreditCard, Debt, DebtCategory, Expense } from '../types/database'
@@ -25,9 +25,11 @@ export interface CreditCardSummary {
 }
 
 export interface DashboardData {
+  /** All-time total income */
   monthIncome: number
+  /** All-time total expenses (including credit-card-paid ones) */
   monthExpenses: number
-  /** Total of expenses paid by credit card this month */
+  /** Total of all-time expenses paid by credit card */
   creditCardExpenses: number
   transferredOut: number
   netBalance: number
@@ -92,26 +94,26 @@ function cycleRangeForCard(now: Date, cutoffDay: number): { start: string; end: 
  * @param walletId - Pass a wallet id to get a shared wallet's income/expense
  * summary (no debts - debts remain personal-only). Omit/null for the
  * signed-in user's personal dashboard, which includes debts.
- * @param referenceDate - Any date within the month to show. Defaults to
- * today, so the dashboard shows the current month unless a specific month
- * is being browsed. Credit card billing cycles and the recent expenses list
- * are scoped to this month too. Debts and savings don't have historical
+ *
+ * Income/expense/net balance totals are all-time (every transaction ever).
+ * Credit card billing cycles are always scoped to the real current cycle
+ * (today's date), and the "recent expenses" list shows the most recent 10
+ * expenses regardless of date. Debts and savings don't have historical
  * snapshots in the database, so they always reflect their actual current
- * running balance regardless of the month being browsed.
+ * running balance.
  */
-export function useDashboard(walletId?: string | null, referenceDate: Date = new Date()) {
+export function useDashboard(walletId?: string | null) {
   const { user } = useAuth()
   const [data, setData] = useState<DashboardRestData>(emptyRestData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { start: rangeStart, end: rangeEnd } = monthRange(referenceDate)
 
   const {
     data: financials,
     loading: financialsLoading,
     error: financialsError,
     refresh: refreshFinancials,
-  } = useWalletPeriodFinancials(walletId, rangeStart, rangeEnd)
+  } = useWalletPeriodFinancials(walletId)
 
   const refresh = useCallback(async () => {
     if (!supabase || !user) {
@@ -123,20 +125,17 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
     setLoading(true)
     setError(null)
 
-    const { start, end } = monthRange(referenceDate)
     const isWallet = Boolean(walletId)
 
     let creditCardExpensesQuery = supabase.from('expenses').select('*').eq('payment_source', 'credit_card')
     let recentQuery = supabase
       .from('expenses')
       .select('*')
-      .gte('date', start)
-      .lte('date', end)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(10)
 
-    // Personal dashboard: show this month's expenses from personal + shared wallets (RLS filters access).
+    // Personal dashboard: show recent expenses from personal + shared wallets (RLS filters access).
     if (isWallet) {
       recentQuery = recentQuery.eq('wallet_id', walletId)
     }
@@ -165,10 +164,8 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
 
     const debts = (debtsResult.data as Debt[]) ?? []
     const creditCards = (creditCardsResult.data as CreditCard[]) ?? []
-    // Use the browsed month (not the real "today") so billing cycles,
-    // due dates, and billable amounts reflect the month being viewed
-    // instead of always showing the current real-world cycle.
-    const now = referenceDate
+    // Credit card billing cycles always reflect the real current cycle.
+    const now = new Date()
     const monthCardExpenses = (creditCardExpensesResult.data as Expense[]) ?? []
 
     const totalDebtRemaining = debts.reduce(
@@ -254,7 +251,7 @@ export function useDashboard(walletId?: string | null, referenceDate: Date = new
     })
     await refreshFinancials()
     setLoading(false)
-  }, [user, walletId, referenceDate, refreshFinancials])
+  }, [user, walletId, refreshFinancials])
 
   useEffect(() => {
     void refresh()

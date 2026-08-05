@@ -91,13 +91,15 @@ export function useTransfers() {
   return { items, creatorEmails, loading, error, createTransfer, refresh }
 }
 
-function inDateRange(date: string, start: string, end: string): boolean {
-  return date >= start && date <= end
+function inDateRange(date: string, start?: string, end?: string): boolean {
+  if (start && date < start) return false
+  if (end && date > end) return false
+  return true
 }
 
 /**
- * Sum of transfers moving money OUT of a given source within a date range
- * (inclusive), for subtracting from that source's net balance.
+ * Sum of transfers moving money OUT of a given source, optionally scoped to
+ * a date range (inclusive). Omit `start`/`end` for an all-time total.
  *
  * Pass `walletId: null` for Personal - Personal transfers can only ever be
  * made by their own owner (there's no way for anyone else to move money
@@ -110,8 +112,8 @@ function inDateRange(date: string, start: string, end: string): boolean {
 export function sumTransfersOut(
   transfers: Transfer[],
   walletId: string | null,
-  start: string,
-  end: string,
+  start: string | undefined,
+  end: string | undefined,
   userId: string,
 ): number {
   return transfers

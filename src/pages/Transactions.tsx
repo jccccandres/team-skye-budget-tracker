@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
-import { PageHeader, SecondaryButton } from '../components/ui/PageHeader'
+import { PageHeader } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
 import { useCreditCards } from '../hooks/useCreditCards'
@@ -33,17 +33,8 @@ export function TransactionsPage() {
   const { items: debts } = useDebts()
   const { items: creditCards } = useCreditCards()
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
-  const [monthOffset, setMonthOffset] = useState(0)
 
-  const referenceDate = useMemo(() => {
-    const d = new Date()
-    d.setDate(1)
-    d.setMonth(d.getMonth() + monthOffset)
-    return d
-  }, [monthOffset])
-
-  const { data, loading, error } = useTransactionsData(activeWalletId, referenceDate)
-  const monthLabel = referenceDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const { data, loading, error } = useTransactionsData(activeWalletId)
 
   function rowLabel(txn: CombinedTransaction): string {
     if (txn.type !== 'transfer') return txn.label
@@ -80,24 +71,7 @@ export function TransactionsPage() {
     <div>
       <PageHeader
         title="Transactions"
-        description={`Overview for ${monthLabel}`}
-        action={
-          <div className="flex items-center gap-2">
-            <SecondaryButton aria-label="Previous month" onClick={() => setMonthOffset((v) => v - 1)}>
-              ← Prev
-            </SecondaryButton>
-            {monthOffset !== 0 && (
-              <SecondaryButton onClick={() => setMonthOffset(0)}>This month</SecondaryButton>
-            )}
-            <SecondaryButton
-              aria-label="Next month"
-              disabled={monthOffset >= 0}
-              onClick={() => setMonthOffset((v) => v + 1)}
-            >
-              Next →
-            </SecondaryButton>
-          </div>
-        }
+        description="All-time overview"
       />
 
       <WalletSwitcher wallets={wallets} activeWalletId={activeWalletId} onChange={setActiveWalletId} />
@@ -127,7 +101,7 @@ export function TransactionsPage() {
             <StatCard
               label="Transferred"
               value={formatCurrency(data.transferredOut)}
-              hint="Sent out this month"
+              hint="Total sent out"
               variant={data.transferredOut > 0 ? 'negative' : 'default'}
             />
             <StatCard
@@ -143,7 +117,7 @@ export function TransactionsPage() {
               All transactions
             </h3>
             {data.transactions.length === 0 ? (
-              <EmptyState message="No income, expenses, or transfers in this month." />
+              <EmptyState message="No income, expenses, or transfers yet." />
             ) : (
               <ul className={listPanel}>
                 {data.transactions.map((txn) => {

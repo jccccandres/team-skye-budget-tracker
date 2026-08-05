@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { monthRange } from '../lib/format'
 import { useDataChangeListener } from '../lib/dataSync'
 import type { ExpensePaymentSource, Transfer } from '../types/database'
 import { useAuth } from './useAuth'
@@ -29,9 +28,11 @@ export type CombinedTransaction =
     }
 
 interface TransactionsData {
+  /** All-time total income */
   monthIncome: number
+  /** All-time total expenses (including credit-card-paid ones) */
   monthExpenses: number
-  /** Total of this month's expenses paid by credit card (also included in
+  /** Total of all-time expenses paid by credit card (also included in
    * monthExpenses - broken out separately for display). */
   creditCardExpenses: number
   transferredOut: number
@@ -51,12 +52,11 @@ const emptyData: TransactionsData = {
 /**
  * @param walletId - Pass a wallet id for a shared wallet's view, or
  * omit/null for the signed-in user's personal view.
- * @param referenceDate - Any date within the month to show. Defaults to
- * today.
+ *
+ * Returns all-time totals and transaction history (every transaction ever).
  */
-export function useTransactionsData(walletId: string | null, referenceDate: Date = new Date()) {
+export function useTransactionsData(walletId: string | null) {
   const { user } = useAuth()
-  const { start, end } = monthRange(referenceDate)
 
   const {
     data: financials,
@@ -64,7 +64,7 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
     loading,
     error,
     refresh,
-  } = useWalletPeriodFinancials(walletId, start, end)
+  } = useWalletPeriodFinancials(walletId)
 
   useDataChangeListener(refresh)
 
@@ -72,7 +72,6 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
     if (!user) return emptyData
 
     const relevantTransfers = transfers.filter((t) => {
-      if (t.date < start || t.date > end) return false
       if (walletId === null) {
         return t.source_type === 'personal' && t.user_id === user.id
       }
@@ -142,7 +141,7 @@ export function useTransactionsData(walletId: string | null, referenceDate: Date
       netBalance: financials.netBalance,
       transactions,
     }
-  }, [user, walletId, start, end, financials, transfers])
+  }, [user, walletId, financials, transfers])
 
   return { data, loading, error, refresh }
 }

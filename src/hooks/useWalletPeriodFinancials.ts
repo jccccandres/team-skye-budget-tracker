@@ -35,7 +35,8 @@ const emptyData: WalletPeriodFinancials = {
 
 /**
  * Single source of truth for income/expense/transfer totals over a date
- * range, for a wallet (or the signed-in user's personal account).
+ * range, for a wallet (or the signed-in user's personal account). Omit
+ * `start`/`end` for an all-time total across every transaction.
  *
  * This used to be reimplemented independently by the Dashboard,
  * Transactions, and Reports pages, which led to inconsistent results
@@ -56,8 +57,8 @@ const emptyData: WalletPeriodFinancials = {
  */
 export function useWalletPeriodFinancials(
   walletId: string | null | undefined,
-  start: string,
-  end: string,
+  start?: string,
+  end?: string,
 ) {
   const { user } = useAuth()
   const [incomeRows, setIncomeRows] = useState<Income[]>([])
@@ -78,8 +79,13 @@ export function useWalletPeriodFinancials(
     setLoading(true)
     setError(null)
 
-    let incomeQuery = supabase.from('income').select('*').gte('date', start).lte('date', end)
-    let expensesQuery = supabase.from('expenses').select('*').gte('date', start).lte('date', end)
+    let incomeQuery = supabase.from('income').select('*')
+    let expensesQuery = supabase.from('expenses').select('*')
+
+    if (start) incomeQuery = incomeQuery.gte('date', start)
+    if (end) incomeQuery = incomeQuery.lte('date', end)
+    if (start) expensesQuery = expensesQuery.gte('date', start)
+    if (end) expensesQuery = expensesQuery.lte('date', end)
 
     incomeQuery = walletId ? incomeQuery.eq('wallet_id', walletId) : incomeQuery.is('wallet_id', null)
     expensesQuery = walletId

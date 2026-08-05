@@ -1,17 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TransferHistory } from '../components/transfers/TransferHistory'
 import { ProgressBar } from '../components/savings/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
-import { PageHeader, SecondaryButton } from '../components/ui/PageHeader'
+import { PageHeader } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { WalletDashboardSection } from '../components/wallets/WalletDashboardSection'
 import { useDashboard } from '../hooks/useDashboard'
 import { useSavingsGoals } from '../hooks/useSavings'
 import { useWallets } from '../hooks/useWallets'
 import { listPanel } from '../lib/classes'
-import { formatCurrency, formatDate, formatMonthDay, monthRange } from '../lib/format'
+import { formatCurrency, formatDate, formatMonthDay } from '../lib/format'
 import { debtCategoryLabel, type DebtCategory, type Wallet } from '../types/database'
 import type { DebtBreakdown } from '../hooks/useDashboard'
 import type { WalletWithMembers } from '../hooks/useWallets'
@@ -80,19 +80,18 @@ function PersonalDashboardSection({
 }: {
   data: ReturnType<typeof useDashboard>['data']
 }) {
-  const { start, end } = monthRange(new Date())
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
-        label="Income this month"
+        label="Total income"
         value={formatCurrency(data.monthIncome)}
-        hint={`${formatDate(start)} – ${formatDate(end)}`}
+        hint="All-time"
         variant="positive"
       />
       <StatCard
-        label="Expenses this month"
+        label="Total expenses"
         value={formatCurrency(data.monthExpenses)}
-        hint={`${formatDate(start)} – ${formatDate(end)}`}
+        hint="All-time"
         variant="negative"
         breakdown={
           data.creditCardExpenses > 0
@@ -103,7 +102,7 @@ function PersonalDashboardSection({
       <StatCard
         label="Transferred out"
         value={formatCurrency(data.transferredOut)}
-        hint="Your transfers to wallets/savings this month"
+        hint="Your transfers to wallets/savings, all-time"
         variant={data.transferredOut > 0 ? 'negative' : 'default'}
       />
       <StatCard
@@ -150,16 +149,14 @@ function WalletNetBalanceCard({
 // so all wallet data is preloaded when the wallets render
 function WalletWithPreloadedData({
   wallet,
-  referenceDate,
   isExpanded,
   onToggle,
 }: {
   wallet: WalletWithMembers
-  referenceDate: Date
   isExpanded: boolean
   onToggle: () => void
 }) {
-  const { data } = useDashboard(wallet.id, referenceDate)
+  const { data } = useDashboard(wallet.id)
   return (
     <CollapsibleWalletSection
       wallet={wallet}
@@ -173,12 +170,10 @@ function WalletWithPreloadedData({
 // Desktop wallet section (always expanded, no toggle)
 function WalletDesktopSection({
   wallet,
-  referenceDate,
 }: {
   wallet: WalletWithMembers
-  referenceDate: Date
 }) {
-  const { data } = useDashboard(wallet.id, referenceDate)
+  const { data } = useDashboard(wallet.id)
   return (
     <section className="mt-8">
       <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -193,48 +188,18 @@ function WalletDesktopSection({
 export function DashboardPage() {
   // 0 = current month, -1 = last month, etc. Capped so you can't browse
   // into the future.
-  const [monthOffset, setMonthOffset] = useState(0)
   const [expandedWallets, setExpandedWallets] = useState(new Set<string>())
   const [isPersonalExpanded, setIsPersonalExpanded] = useState(false)
 
-  const referenceDate = useMemo(() => {
-    const d = new Date()
-    d.setDate(1)
-    d.setMonth(d.getMonth() + monthOffset)
-    return d
-  }, [monthOffset])
-
-  const { data, loading, error } = useDashboard(undefined, referenceDate)
+  const { data, loading, error } = useDashboard(undefined)
   const { wallets } = useWallets()
   const { items: savingsGoals, loading: savingsLoading } = useSavingsGoals()
-  const { start, end } = monthRange(referenceDate)
-  const monthLabel = referenceDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        description={`Overview for ${monthLabel}`}
-        action={
-          <div className="flex items-center gap-2">
-            <SecondaryButton
-              aria-label="Previous month"
-              onClick={() => setMonthOffset((v) => v - 1)}
-            >
-              ← Prev
-            </SecondaryButton>
-            {monthOffset !== 0 && (
-              <SecondaryButton onClick={() => setMonthOffset(0)}>This month</SecondaryButton>
-            )}
-            <SecondaryButton
-              aria-label="Next month"
-              disabled={monthOffset >= 0}
-              onClick={() => setMonthOffset((v) => v + 1)}
-            >
-              Next →
-            </SecondaryButton>
-          </div>
-        }
+        description="All-time overview"
       />
 
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
@@ -286,7 +251,6 @@ export function DashboardPage() {
                   <WalletDesktopSection
                     key={wallet.id}
                     wallet={wallet}
-                    referenceDate={referenceDate}
                   />
                 ))}
               </div>
@@ -297,7 +261,6 @@ export function DashboardPage() {
                   <WalletWithPreloadedData
                     key={wallet.id}
                     wallet={wallet}
-                    referenceDate={referenceDate}
                     isExpanded={expandedWallets.has(wallet.id)}
                     onToggle={() => {
                       setExpandedWallets((prev) => {
@@ -507,7 +470,7 @@ export function DashboardPage() {
             <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
               Transfer history
             </h3>
-            <TransferHistory start={start} end={end} />
+            <TransferHistory />
           </section>
         </>
       )}
