@@ -4,7 +4,12 @@ import { notifyDataChanged } from '../lib/dataSync'
 import type { CreateTransferInput, Transfer } from '../types/database'
 import { useAuth } from './useAuth'
 
-export function useTransfers() {
+/**
+ * @param enabled - Pass `false` to skip fetching transfers entirely (e.g.
+ * when a consumer only needs aggregate totals from `get_wallet_totals` and
+ * doesn't need the actual transfer rows). Defaults to `true`.
+ */
+export function useTransfers(enabled: boolean = true) {
   const { user } = useAuth()
   const [items, setItems] = useState<Transfer[]>([])
   const [creatorEmails, setCreatorEmails] = useState<Record<string, string>>({})
@@ -12,7 +17,7 @@ export function useTransfers() {
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    if (!supabase || !user) {
+    if (!supabase || !user || !enabled) {
       setItems([])
       setCreatorEmails({})
       setLoading(false)
@@ -55,7 +60,7 @@ export function useTransfers() {
     }
 
     setLoading(false)
-  }, [user])
+  }, [user, enabled])
 
   useEffect(() => {
     void refresh()

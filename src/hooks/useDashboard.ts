@@ -95,12 +95,15 @@ function cycleRangeForCard(now: Date, cutoffDay: number): { start: string; end: 
  * summary (no debts - debts remain personal-only). Omit/null for the
  * signed-in user's personal dashboard, which includes debts.
  *
- * Income/expense/net balance totals are all-time (every transaction ever).
- * Credit card billing cycles are always scoped to the real current cycle
- * (today's date), and the "recent expenses" list shows the most recent 10
- * expenses regardless of date. Debts and savings don't have historical
- * snapshots in the database, so they always reflect their actual current
- * running balance.
+ * Income/expense/net balance totals are all-time (every transaction ever),
+ * computed via a database-side `SUM()` aggregate (see
+ * `useWalletPeriodFinancials`'s `skipRows` option) rather than fetching
+ * every row to the browser, so this stays fast regardless of transaction
+ * history size. Credit card billing cycles are always scoped to the real
+ * current cycle (today's date), and the "recent expenses" list shows the
+ * most recent 10 expenses regardless of date. Debts and savings don't have
+ * historical snapshots in the database, so they always reflect their
+ * actual current running balance.
  */
 export function useDashboard(walletId?: string | null) {
   const { user } = useAuth()
@@ -113,7 +116,7 @@ export function useDashboard(walletId?: string | null) {
     loading: financialsLoading,
     error: financialsError,
     refresh: refreshFinancials,
-  } = useWalletPeriodFinancials(walletId)
+  } = useWalletPeriodFinancials(walletId, undefined, undefined, { skipRows: true })
 
   const refresh = useCallback(async () => {
     if (!supabase || !user) {
