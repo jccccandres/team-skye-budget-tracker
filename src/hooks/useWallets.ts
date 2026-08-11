@@ -99,6 +99,26 @@ export function useWallets() {
     [user, refresh],
   )
 
+  const renameWallet = useCallback(
+    async (walletId: string, name: string) => {
+      if (!supabase || !user) return { error: 'Not authenticated.' }
+
+      const trimmed = name.trim()
+      if (!trimmed) return { error: 'Enter a wallet name.' }
+
+      const { error: updateError } = await supabase
+        .from('wallets')
+        .update({ name: trimmed })
+        .eq('id', walletId)
+
+      if (updateError) return { error: updateError.message }
+
+      await refresh()
+      return { error: null }
+    },
+    [user, refresh],
+  )
+
   const inviteToWallet = useCallback(
     async (walletId: string, email: string) => {
       if (!supabase || !user) return { error: 'Not authenticated.' }
@@ -172,6 +192,7 @@ export function useWallets() {
     loading,
     error,
     createWallet,
+    renameWallet,
     inviteToWallet,
     respondToInvite,
     leaveWallet,

@@ -7,7 +7,8 @@ import { listPanel } from '../lib/classes'
 import { useWallets } from '../hooks/useWallets'
 
 export function WalletsPage() {
-  const { wallets, loading, error, createWallet, inviteToWallet, leaveWallet } = useWallets()
+  const { wallets, loading, error, createWallet, renameWallet, inviteToWallet, leaveWallet } =
+    useWallets()
   const [newWalletName, setNewWalletName] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -16,6 +17,11 @@ export function WalletsPage() {
   const [invitingWalletId, setInvitingWalletId] = useState<string | null>(null)
   const [inviteErrors, setInviteErrors] = useState<Record<string, string | null>>({})
   const [inviteSuccess, setInviteSuccess] = useState<Record<string, boolean>>({})
+
+  const [renamingWalletId, setRenamingWalletId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameError, setRenameError] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState(false)
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault()
@@ -56,6 +62,36 @@ export function WalletsPage() {
     } else {
       setInviteEmails((prev) => ({ ...prev, [walletId]: '' }))
       setInviteSuccess((prev) => ({ ...prev, [walletId]: true }))
+    }
+  }
+
+  function startRename(walletId: string, currentName: string) {
+    setRenamingWalletId(walletId)
+    setRenameValue(currentName)
+    setRenameError(null)
+  }
+
+  function cancelRename() {
+    setRenamingWalletId(null)
+    setRenameValue('')
+    setRenameError(null)
+  }
+
+  async function handleRename(walletId: string) {
+    if (!renameValue.trim()) {
+      setRenameError('Enter a wallet name.')
+      return
+    }
+
+    setRenaming(true)
+    const result = await renameWallet(walletId, renameValue)
+    setRenaming(false)
+
+    if (result.error) {
+      setRenameError(result.error)
+    } else {
+      setRenamingWalletId(null)
+      setRenameValue('')
     }
   }
 
@@ -110,12 +146,51 @@ export function WalletsPage() {
               key={wallet.id}
               className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"
             >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                  {wallet.name}
-                </h3>
-                <SecondaryButton onClick={() => void leaveWallet(wallet.id)}>Leave</SecondaryButton>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                {renamingWalletId === wallet.id ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      void handleRename(wallet.id)
+                    }}
+                    className="flex flex-1 items-center gap-2"
+                  >
+                    <TextInput
+                      id={`rename-${wallet.id}`}
+                      type="text"
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      className="flex-1"
+                    />
+                    <PrimaryButton type="submit" disabled={renaming}>
+                      {renaming ? 'Saving…' : 'Save'}
+                    </PrimaryButton>
+                    <SecondaryButton type="button" onClick={cancelRename}>
+                      Cancel
+                    </SecondaryButton>
+                  </form>
+                ) : (
+                  <>
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      {wallet.name}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <SecondaryButton onClick={() => startRename(wallet.id, wallet.name)}>
+                        Rename
+                      </SecondaryButton>
+                      <SecondaryButton onClick={() => void leaveWallet(wallet.id)}>
+                        Leave
+                      </SecondaryButton>
+                    </div>
+                  </>
+                )}
               </div>
+              {renamingWalletId === wallet.id && renameError && (
+                <div className="mb-3">
+                  <ErrorAlert message={renameError} />
+                </div>
+              )}
 
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
                 Members

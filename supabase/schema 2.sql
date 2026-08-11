@@ -525,6 +525,11 @@ CREATE POLICY "Users can create wallets"
   ON wallets FOR INSERT
   WITH CHECK (created_by = auth.uid());
 
+CREATE POLICY "Members can rename their wallets"
+  ON wallets FOR UPDATE
+  USING (is_wallet_member(id))
+  WITH CHECK (is_wallet_member(id));
+
 -- wallet_members
 CREATE POLICY "Members can view wallet membership"
   ON wallet_members FOR SELECT
