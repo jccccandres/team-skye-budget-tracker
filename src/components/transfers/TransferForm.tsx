@@ -57,6 +57,13 @@ export function TransferForm({
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // Available destination wallets when transferring from a wallet: every
+  // wallet except the source itself (can't transfer a wallet to itself).
+  const destinationWallets = useMemo(
+    () => (sourceType === 'wallet' ? wallets.filter((w) => w.id !== sourceWalletId) : wallets),
+    [wallets, sourceType, sourceWalletId],
+  )
+
   // The dropdowns render correctly the moment wallets/goals/debts load (since
   // <select> falls back to showing the first <option> even when the
   // controlled value doesn't match any of them yet) - but the underlying
@@ -71,11 +78,11 @@ export function TransferForm({
   }, [wallets, sourceWalletId])
 
   useEffect(() => {
-    if (wallets.length === 0) return
-    if (!wallets.some((w) => w.id === destinationWalletId)) {
-      setDestinationWalletId(wallets[0].id)
+    if (destinationWallets.length === 0) return
+    if (!destinationWallets.some((w) => w.id === destinationWalletId)) {
+      setDestinationWalletId(destinationWallets[0].id)
     }
-  }, [wallets, destinationWalletId])
+  }, [destinationWallets, destinationWalletId])
 
   useEffect(() => {
     if (goals.length === 0) return
@@ -98,16 +105,7 @@ export function TransferForm({
     }
   }, [creditCards, destinationCreditCardId, presetCreditCardId])
 
-  // A wallet-sourced transfer can only go to a savings goal, a debt payment,
-  // or a credit card bill payment (moving it to another wallet isn't a
-  // supported flow yet).
-  const destinationOptions = useMemo<TransferDestinationType[]>(
-    () =>
-      sourceType === 'wallet'
-        ? ['savings_goal', 'debt', 'credit_card']
-        : ['wallet', 'savings_goal', 'debt', 'credit_card'],
-    [sourceType],
-  )
+  const destinationOptions: TransferDestinationType[] = ['wallet', 'savings_goal', 'debt', 'credit_card']
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -234,9 +232,11 @@ export function TransferForm({
 
       {destinationType === 'wallet' && (
         <FormField label="Destination wallet" htmlFor="transfer-destination-wallet">
-          {wallets.length === 0 ? (
+          {destinationWallets.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              You don't have any shared wallets yet.
+              {sourceType === 'wallet'
+                ? "You don't have any other shared wallets yet."
+                : "You don't have any shared wallets yet."}
             </p>
           ) : (
             <SelectInput
@@ -244,7 +244,7 @@ export function TransferForm({
               value={destinationWalletId}
               onChange={(e) => setDestinationWalletId(e.target.value)}
             >
-              {wallets.map((w) => (
+              {destinationWallets.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
                 </option>
