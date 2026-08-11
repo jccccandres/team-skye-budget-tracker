@@ -194,7 +194,7 @@ export function TransferForm({
           onChange={(e) => setSourceType(e.target.value as TransferSourceType)}
         >
           <option value="personal">Personal</option>
-          {wallets.length > 0 && <option value="wallet">A shared wallet</option>}
+          {wallets.length > 0 && <option value="wallet">Wallet</option>}
         </SelectInput>
       </FormField>
 
@@ -221,13 +221,13 @@ export function TransferForm({
           disabled={Boolean(presetDebtId || presetCreditCardId)}
           onChange={(e) => setDestinationType(e.target.value as TransferDestinationType)}
         >
-          {destinationOptions.includes('wallet') && <option value="wallet">A shared wallet</option>}
+          {destinationOptions.includes('wallet') && <option value="wallet">Wallet</option>}
           {destinationOptions.includes('savings_goal') && (
-            <option value="savings_goal">A savings goal</option>
+            <option value="savings_goal">Savings</option>
           )}
-          {destinationOptions.includes('debt') && <option value="debt">A debt payment</option>}
+          {destinationOptions.includes('debt') && <option value="debt">Debt</option>}
           {destinationOptions.includes('credit_card') && (
-            <option value="credit_card">A credit card bill</option>
+            <option value="credit_card">Credit Card</option>
           )}
         </SelectInput>
       </FormField>
