@@ -10,13 +10,15 @@ export function WalletDashboardSection({
   return (
     <div className="grid gap-4 sm:grid-cols-4">
       <StatCard
-        label="Income this month"
+        label="Total income"
         value={formatCurrency(walletData.monthIncome)}
+        hint="All-time"
         variant="positive"
       />
       <StatCard
-        label="Expenses this month"
+        label="Total expenses"
         value={formatCurrency(walletData.monthExpenses)}
+        hint="All-time"
         variant="negative"
         breakdown={
           walletData.creditCardExpenses > 0
@@ -27,7 +29,7 @@ export function WalletDashboardSection({
       <StatCard
         label="Transferred out"
         value={formatCurrency(walletData.transferredOut)}
-        hint="Your transfers to savings this month"
+        hint="Transfers out of this wallet, all-time"
         variant={walletData.transferredOut > 0 ? 'negative' : 'default'}
       />
       <StatCard
