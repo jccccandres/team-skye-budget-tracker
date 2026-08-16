@@ -1,17 +1,21 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TransferHistory } from '../components/transfers/TransferHistory'
 import { ProgressBar } from '../components/savings/ProgressBar'
+import { VerificationStatusBanner } from '../components/verification/VerificationStatusBanner'
+import { VerifyBalanceModal } from '../components/verification/VerifyBalanceModal'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
-import { PageHeader } from '../components/ui/PageHeader'
+import { PageHeader, PrimaryButton } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { WalletDashboardSection } from '../components/wallets/WalletDashboardSection'
+import { useBalanceVerifications } from '../hooks/useBalanceVerifications'
 import { useDashboard } from '../hooks/useDashboard'
 import { useSavingsGoals } from '../hooks/useSavings'
+import { useToast } from '../hooks/useToast'
 import { useWallets } from '../hooks/useWallets'
 import { listPanel } from '../lib/classes'
-import { formatCurrency, formatDate, formatMonthDay } from '../lib/format'
+import { formatCurrency, formatDate, formatDateTime, formatMonthDay } from '../lib/format'
 import { debtCategoryLabel, type DebtCategory, type Wallet } from '../types/database'
 import type { DebtBreakdown } from '../hooks/useDashboard'
 import type { WalletWithMembers } from '../hooks/useWallets'
@@ -35,11 +39,13 @@ const debtCategoryCards: { category: DebtCategory; label: string }[] = [
 function CollapsibleWalletSection({
   wallet,
   data,
+  latestVerifiedAt,
   isExpanded,
   onToggle,
 }: {
   wallet: WalletWithMembers
   data: ReturnType<typeof useDashboard>['data']
+  latestVerifiedAt: string | null
   isExpanded: boolean
   onToggle: () => void
 }) {
@@ -50,10 +56,15 @@ function CollapsibleWalletSection({
         onClick={onToggle}
         className="mb-3 flex items-center justify-between w-full group"
       >
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          {wallet.name}
-          {wallet.members.length > 1 ? ' (shared)' : ''}
-        </h3>
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {wallet.name}
+            {wallet.members.length > 1 ? ' (shared)' : ''}
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {latestVerifiedAt ? `Last verified ${formatDateTime(latestVerifiedAt)}` : 'Not verified yet'}
+          </p>
+        </div>
         <span
           className="text-lg text-slate-400 transition-transform group-hover:text-slate-600 dark:group-hover:text-slate-300"
           style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
@@ -149,10 +160,12 @@ function WalletNetBalanceCard({
 // so all wallet data is preloaded when the wallets render
 function WalletWithPreloadedData({
   wallet,
+  latestVerifiedAt,
   isExpanded,
   onToggle,
 }: {
   wallet: WalletWithMembers
+  latestVerifiedAt: string | null
   isExpanded: boolean
   onToggle: () => void
 }) {
@@ -161,6 +174,7 @@ function WalletWithPreloadedData({
     <CollapsibleWalletSection
       wallet={wallet}
       data={data}
+      latestVerifiedAt={latestVerifiedAt}
       isExpanded={isExpanded}
       onToggle={onToggle}
     />
@@ -170,16 +184,23 @@ function WalletWithPreloadedData({
 // Desktop wallet section (always expanded, no toggle)
 function WalletDesktopSection({
   wallet,
+  latestVerifiedAt,
 }: {
   wallet: WalletWithMembers
+  latestVerifiedAt: string | null
 }) {
   const { data } = useDashboard(wallet.id)
   return (
     <section className="mt-8">
-      <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
-        {wallet.name}
-        {wallet.members.length > 1 ? ' (shared)' : ''}
-      </h3>
+      <div className="mb-3">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {wallet.name}
+          {wallet.members.length > 1 ? ' (shared)' : ''}
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          {latestVerifiedAt ? `Last verified ${formatDateTime(latestVerifiedAt)}` : 'Not verified yet'}
+        </p>
+      </div>
       <WalletDashboardSection walletData={data} />
     </section>
   )
@@ -190,17 +211,101 @@ export function DashboardPage() {
   // into the future.
   const [expandedWallets, setExpandedWallets] = useState(new Set<string>())
   const [isPersonalExpanded, setIsPersonalExpanded] = useState(false)
+  const [showVerifyModal, setShowVerifyModal] = useState(false)
 
   const { data, loading, error } = useDashboard(undefined)
   const { wallets } = useWallets()
   const { items: savingsGoals, loading: savingsLoading } = useSavingsGoals()
+  const { latestForScope, createVerification } = useBalanceVerifications()
+  const { showToast } = useToast()
+
+  const personalLatest = latestForScope({
+    scopeType: 'personal',
+    walletId: null,
+    savingsGoalId: null,
+  })
+
+  const walletVerificationInfo = useMemo(
+    () =>
+      wallets.map((wallet) => ({
+        walletId: wallet.id,
+        latest: latestForScope({
+          scopeType: 'wallet',
+          walletId: wallet.id,
+          savingsGoalId: null,
+        }),
+      })),
+    [wallets, latestForScope],
+  )
+
+  const unverifiedSummaryText = useMemo(() => {
+    const unverifiedWalletCount = walletVerificationInfo.filter((item) => !item.latest).length
+    const unverifiedSavingsCount = savingsGoals.filter(
+      (goal) =>
+        !latestForScope({ scopeType: 'savings_goal', walletId: null, savingsGoalId: goal.id }),
+    ).length
+
+    const parts: string[] = []
+    if (!personalLatest) parts.push('Personal')
+    if (unverifiedWalletCount > 0) {
+      parts.push(`${unverifiedWalletCount} wallet${unverifiedWalletCount === 1 ? '' : 's'}`)
+    }
+    if (unverifiedSavingsCount > 0) {
+      parts.push(`${unverifiedSavingsCount} savings goal${unverifiedSavingsCount === 1 ? '' : 's'}`)
+    }
+
+    if (parts.length === 0) return null
+    return `Not yet verified: ${parts.join(', ')}.`
+  }, [walletVerificationInfo, savingsGoals, latestForScope, personalLatest])
+
+  async function handleVerify(input: {
+    scopeType: 'personal' | 'wallet' | 'savings_goal'
+    walletId: string | null
+    savingsGoalId: string | null
+    actualAmount: number
+    date: string
+    note: string | null
+  }) {
+    const result = await createVerification(input)
+    if (result.error) {
+      showToast(result.error, 'error')
+      return { error: result.error }
+    }
+
+    const verified = result.verification
+    if (!verified) {
+      showToast('Balance verification failed.', 'error')
+      return { error: 'Balance verification failed.' }
+    }
+
+    if (Math.abs(Number(verified.delta)) < 0.01) {
+      showToast('Balance verified. No adjustment was needed.', 'success')
+    } else {
+      showToast('Balance verified. A reconciliation transaction was added.', 'success')
+    }
+
+    return { error: null }
+  }
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
         description="All-time overview"
+        action={<PrimaryButton onClick={() => setShowVerifyModal(true)}>Verify balance</PrimaryButton>}
       />
+
+      <div className="mb-4 space-y-2">
+        <VerificationStatusBanner
+          latestVerifiedAt={personalLatest?.created_at ?? null}
+          label="Personal balance"
+        />
+        {unverifiedSummaryText && (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            {unverifiedSummaryText}
+          </p>
+        )}
+      </div>
 
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
 
@@ -210,7 +315,12 @@ export function DashboardPage() {
         <>
           {/* Desktop: Always expanded */}
           <div className="hidden lg:block">
-            <h3 className="mb-3 mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Personal</h3>
+            <div className="mb-3 mt-8">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Personal</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {personalLatest ? `Last verified ${formatDateTime(personalLatest.created_at)}` : 'Not verified yet'}
+              </p>
+            </div>
             <PersonalDashboardSection data={data} />
           </div>
 
@@ -251,6 +361,9 @@ export function DashboardPage() {
                   <WalletDesktopSection
                     key={wallet.id}
                     wallet={wallet}
+                    latestVerifiedAt={
+                      walletVerificationInfo.find((item) => item.walletId === wallet.id)?.latest?.created_at ?? null
+                    }
                   />
                 ))}
               </div>
@@ -261,6 +374,9 @@ export function DashboardPage() {
                   <WalletWithPreloadedData
                     key={wallet.id}
                     wallet={wallet}
+                    latestVerifiedAt={
+                      walletVerificationInfo.find((item) => item.walletId === wallet.id)?.latest?.created_at ?? null
+                    }
                     isExpanded={expandedWallets.has(wallet.id)}
                     onToggle={() => {
                       setExpandedWallets((prev) => {
@@ -473,6 +589,16 @@ export function DashboardPage() {
             <TransferHistory />
           </section>
         </>
+      )}
+
+      {showVerifyModal && (
+        <VerifyBalanceModal
+          wallets={wallets}
+          savingsGoals={savingsGoals}
+          defaultScope={{ scopeType: 'personal', walletId: null, savingsGoalId: null }}
+          onClose={() => setShowVerifyModal(false)}
+          onVerify={handleVerify}
+        />
       )}
     </div>
   )

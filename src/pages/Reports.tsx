@@ -2,18 +2,25 @@ import { useState } from 'react'
 import { CategoryBarChart } from '../components/reports/CategoryBarChart'
 import { CategoryExpenseList } from '../components/reports/CategoryExpenseList'
 import { DateRangePicker } from '../components/reports/DateRangePicker'
+import { VerificationStatusBanner } from '../components/verification/VerificationStatusBanner'
+import { VerifyBalanceModal } from '../components/verification/VerifyBalanceModal'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
 import { Modal } from '../components/ui/Modal'
-import { PageHeader } from '../components/ui/PageHeader'
+import { PageHeader, PrimaryButton } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
+import { useBalanceVerifications } from '../hooks/useBalanceVerifications'
 import { useReportsData } from '../hooks/useReportsData'
+import { useSavingsGoals } from '../hooks/useSavings'
+import { useToast } from '../hooks/useToast'
 import { useWallets } from '../hooks/useWallets'
 import { formatCurrency, formatDate, reportPresetRange, type ReportPreset } from '../lib/format'
 
 export function ReportsPage() {
   const { wallets } = useWallets()
+  const { items: savingsGoals } = useSavingsGoals()
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
+  const [showVerifyModal, setShowVerifyModal] = useState(false)
 
   const [preset, setPreset] = useState<ReportPreset | 'custom'>('thisMonth')
   const [range, setRange] = useState(() => reportPresetRange('thisMonth'))
@@ -30,15 +37,62 @@ export function ReportsPage() {
   }
 
   const { data, loading, error } = useReportsData(activeWalletId, range.start, range.end)
+  const { latestForScope, createVerification } = useBalanceVerifications()
+  const { showToast } = useToast()
+
+  const activeScope = {
+    scopeType: (activeWalletId ? 'wallet' : 'personal') as 'wallet' | 'personal',
+    walletId: activeWalletId,
+    savingsGoalId: null,
+  }
+
+  const latestVerification = latestForScope(activeScope)
+
+  async function handleVerify(input: {
+    scopeType: 'personal' | 'wallet' | 'savings_goal'
+    walletId: string | null
+    savingsGoalId: string | null
+    actualAmount: number
+    date: string
+    note: string | null
+  }) {
+    const result = await createVerification(input)
+    if (result.error) {
+      showToast(result.error, 'error')
+      return { error: result.error }
+    }
+
+    const verified = result.verification
+    if (!verified) {
+      showToast('Balance verification failed.', 'error')
+      return { error: 'Balance verification failed.' }
+    }
+
+    if (Math.abs(Number(verified.delta)) < 0.01) {
+      showToast('Balance verified. No adjustment was needed.', 'success')
+    } else {
+      showToast('Balance verified. A reconciliation transaction was added.', 'success')
+    }
+
+    return { error: null }
+  }
 
   return (
     <div>
       <PageHeader
         title="Reports"
         description={`${formatDate(range.start)} – ${formatDate(range.end)}`}
+        action={<PrimaryButton onClick={() => setShowVerifyModal(true)}>Verify balance</PrimaryButton>}
       />
 
       <WalletSwitcher wallets={wallets} activeWalletId={activeWalletId} onChange={setActiveWalletId} />
+
+      <div className="mb-4">
+        <VerificationStatusBanner
+          latestVerifiedAt={latestVerification?.created_at ?? null}
+          label={activeWalletId ? 'This wallet' : 'Personal balance'}
+        />
+      </div>
 
       <DateRangePicker
         preset={preset}
@@ -103,6 +157,16 @@ export function ReportsPage() {
         <Modal title={selectedCategory} onClose={() => setSelectedCategory(null)}>
           <CategoryExpenseList expenses={data.expensesByCategory.get(selectedCategory) ?? []} />
         </Modal>
+      )}
+
+      {showVerifyModal && (
+        <VerifyBalanceModal
+          wallets={wallets}
+          savingsGoals={savingsGoals}
+          defaultScope={activeScope}
+          onClose={() => setShowVerifyModal(false)}
+          onVerify={handleVerify}
+        />
       )}
     </div>
   )

@@ -82,6 +82,7 @@ export function useTransfers(enabled: boolean = true) {
         p_destination_savings_goal_id: input.destinationSavingsGoalId,
         p_destination_debt_id: input.destinationDebtId,
         p_destination_credit_card_id: input.destinationCreditCardId,
+        p_category: input.category,
       })
 
       if (rpcError) return { error: rpcError.message }

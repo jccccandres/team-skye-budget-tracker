@@ -11,6 +11,7 @@ import {
   transferDestinationLabel,
   transferSourceLabel,
 } from '../../lib/transfers'
+import { transferCategoryLabel } from '../../types/database'
 import { EmptyState } from '../ui/EmptyState'
 
 export function TransferHistory({ start, end }: { start?: string; end?: string } = {}) {
@@ -51,6 +52,7 @@ export function TransferHistory({ start, end }: { start?: string; end?: string }
               {' · Created by '}
               {user ? transferCreatorLabel(transfer, user.id, creatorEmails) : '—'}
               {transfer.note ? ` · ${transfer.note}` : ''}
+              {transfer.category ? ` · ${transferCategoryLabel(transfer.category)}` : ''}
               {transfer.fee ? ` · Fee ${formatCurrency(Number(transfer.fee))}` : ''}
             </p>
           </div>

@@ -9,6 +9,7 @@ import { useTransfers } from '../../hooks/useTransfers'
 import { useWallets } from '../../hooks/useWallets'
 import { useToast } from '../../hooks/useToast'
 import { todayISO } from '../../lib/format'
+import { TRANSFER_CATEGORIES, type TransferCategory } from '../../types/database'
 import type { TransferDestinationType, TransferSourceType } from '../../types/database'
 
 interface TransferFormProps {
@@ -49,6 +50,7 @@ export function TransferForm({
   const [destinationCreditCardId, setDestinationCreditCardId] = useState(
     presetCreditCardId ?? creditCards[0]?.id ?? '',
   )
+  const [category, setCategory] = useState<TransferCategory>('contribution')
 
   const [amount, setAmount] = useState('0.00')
   const [fee, setFee] = useState('0.00')
@@ -165,6 +167,7 @@ export function TransferForm({
       destinationSavingsGoalId: destinationType === 'savings_goal' ? destinationGoalId : null,
       destinationDebtId: destinationType === 'debt' ? destinationDebtId : null,
       destinationCreditCardId: destinationType === 'credit_card' ? destinationCreditCardId : null,
+      category: destinationType === 'wallet' ? category : null,
     })
     setSubmitting(false)
 
@@ -251,6 +254,22 @@ export function TransferForm({
               ))}
             </SelectInput>
           )}
+        </FormField>
+      )}
+
+      {destinationType === 'wallet' && (
+        <FormField label="Category" htmlFor="transfer-category">
+          <SelectInput
+            id="transfer-category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as TransferCategory)}
+          >
+            {TRANSFER_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </SelectInput>
         </FormField>
       )}
 

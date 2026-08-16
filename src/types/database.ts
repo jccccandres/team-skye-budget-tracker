@@ -5,6 +5,21 @@ export type InviteStatus = 'pending' | 'accepted' | 'declined'
 export type SavingsTransactionType = 'deposit' | 'withdrawal'
 export type TransferSourceType = 'personal' | 'wallet'
 export type TransferDestinationType = 'wallet' | 'savings_goal' | 'debt' | 'credit_card'
+export type VerificationScopeType = 'personal' | 'wallet' | 'savings_goal'
+export type VerificationAdjustmentKind =
+  | 'none'
+  | 'income'
+  | 'expense'
+  | 'savings_deposit'
+  | 'savings_withdrawal'
+export type TransferCategory =
+  | 'contribution'
+  | 'reimbursement'
+  | 'bill_split'
+  | 'gift'
+  | 'loan'
+  | 'savings'
+  | 'other'
 export type ExpensePaymentSource = 'wallet' | 'credit_card'
 
 export interface Expense {
@@ -91,6 +106,11 @@ export interface Transfer {
   destination_savings_goal_id: string | null
   destination_debt_id: string | null
   destination_credit_card_id: string | null
+  /** Purpose of the transfer, e.g. "contribution" or "reimbursement".
+   * Only meaningful for wallet-destination transfers (funding a shared
+   * wallet) - other destinations (savings/debt/credit card) already have
+   * a clear named target, so this is null for those. */
+  category: TransferCategory | null
   created_at: string
 }
 
@@ -111,6 +131,22 @@ export interface CreditCardPayment {
   amount: number
   date: string
   note: string | null
+  created_at: string
+}
+
+export interface BalanceVerification {
+  id: string
+  user_id: string
+  scope_type: VerificationScopeType
+  wallet_id: string | null
+  savings_goal_id: string | null
+  expected_amount: number
+  actual_amount: number
+  delta: number
+  note: string | null
+  adjustment_applied: boolean
+  adjustment_kind: VerificationAdjustmentKind
+  adjustment_reference_id: string | null
   created_at: string
 }
 
@@ -211,6 +247,17 @@ export interface CreateTransferInput {
   destinationSavingsGoalId: string | null
   destinationDebtId: string | null
   destinationCreditCardId: string | null
+  /** Only meaningful when destinationType is 'wallet' - see `Transfer.category`. */
+  category: TransferCategory | null
+}
+
+export interface CreateBalanceVerificationInput {
+  scopeType: VerificationScopeType
+  walletId: string | null
+  savingsGoalId: string | null
+  actualAmount: number
+  date: string
+  note: string | null
 }
 
 export const DEBT_CATEGORIES = [
@@ -221,6 +268,21 @@ export const DEBT_CATEGORIES = [
 
 export function debtCategoryLabel(category: DebtCategory): string {
   return DEBT_CATEGORIES.find((c) => c.value === category)?.label ?? category
+}
+
+export const TRANSFER_CATEGORIES: { value: TransferCategory; label: string }[] = [
+  { value: 'contribution', label: 'Contribution' },
+  { value: 'reimbursement', label: 'Reimbursement' },
+  { value: 'bill_split', label: 'Bill split' },
+  { value: 'gift', label: 'Gift' },
+  { value: 'loan', label: 'Loan' },
+  { value: 'savings', label: 'Savings' },
+  { value: 'other', label: 'Other' },
+]
+
+export function transferCategoryLabel(category: TransferCategory | null): string | null {
+  if (!category) return null
+  return TRANSFER_CATEGORIES.find((c) => c.value === category)?.label ?? category
 }
 
 export const EXPENSE_CATEGORIES = [

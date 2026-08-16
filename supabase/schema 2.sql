@@ -140,6 +140,31 @@ CREATE TABLE savings_transactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Explicit user balance verification snapshots. A row records what the
+-- system expected, what the user entered as the real-world amount, the
+-- delta, and any auto-created reconciliation transaction.
+CREATE TABLE balance_verifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  scope_type TEXT NOT NULL CHECK (scope_type IN ('personal', 'wallet', 'savings_goal')),
+  wallet_id UUID REFERENCES wallets (id) ON DELETE CASCADE,
+  savings_goal_id UUID REFERENCES savings_goals (id) ON DELETE CASCADE,
+  expected_amount NUMERIC(12, 2) NOT NULL,
+  actual_amount NUMERIC(12, 2) NOT NULL,
+  delta NUMERIC(12, 2) NOT NULL,
+  note TEXT,
+  adjustment_applied BOOLEAN NOT NULL DEFAULT false,
+  adjustment_kind TEXT NOT NULL DEFAULT 'none'
+    CHECK (adjustment_kind IN ('none', 'income', 'expense', 'savings_deposit', 'savings_withdrawal')),
+  adjustment_reference_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT balance_verification_scope_target_check CHECK (
+    (scope_type = 'personal' AND wallet_id IS NULL AND savings_goal_id IS NULL)
+    OR (scope_type = 'wallet' AND wallet_id IS NOT NULL AND savings_goal_id IS NULL)
+    OR (scope_type = 'savings_goal' AND wallet_id IS NULL AND savings_goal_id IS NOT NULL)
+  )
+);
+
 -- Grocery lists are a standalone module: not linked to wallets, expenses, or
 -- transfers. Item ids are generated client-side (UUID) so the app can create
 -- lists/items while offline and sync them later without id collisions.
@@ -180,6 +205,14 @@ CREATE TABLE transfers (
   destination_savings_goal_id UUID REFERENCES savings_goals (id) ON DELETE CASCADE,
   destination_debt_id UUID REFERENCES debts (id) ON DELETE CASCADE,
   destination_credit_card_id UUID REFERENCES credit_cards (id) ON DELETE CASCADE,
+  -- Purpose of the transfer (e.g. "contribution", "reimbursement"). Only
+  -- meaningful for wallet-destination transfers - other destinations
+  -- (savings/debt/credit card) already have a clear named target.
+  category TEXT CHECK (
+    category IS NULL OR category IN (
+      'contribution', 'reimbursement', 'bill_split', 'gift', 'loan', 'savings', 'other'
+    )
+  ),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   CONSTRAINT source_wallet_required CHECK (
@@ -233,6 +266,13 @@ CREATE INDEX wallet_invites_email_idx ON wallet_invites (invited_email);
 
 CREATE INDEX savings_goals_user_id_idx ON savings_goals (user_id);
 CREATE INDEX savings_transactions_goal_id_idx ON savings_transactions (goal_id);
+CREATE INDEX balance_verifications_user_created_idx ON balance_verifications (user_id, created_at DESC);
+CREATE INDEX balance_verifications_scope_wallet_idx
+  ON balance_verifications (user_id, wallet_id, created_at DESC)
+  WHERE scope_type = 'wallet';
+CREATE INDEX balance_verifications_scope_savings_idx
+  ON balance_verifications (user_id, savings_goal_id, created_at DESC)
+  WHERE scope_type = 'savings_goal';
 
 CREATE INDEX transfers_user_id_idx ON transfers (user_id);
 CREATE INDEX transfers_date_idx ON transfers (date);
@@ -370,7 +410,8 @@ CREATE OR REPLACE FUNCTION public.create_transfer(
   p_destination_savings_goal_id UUID,
   p_destination_debt_id UUID,
   p_destination_credit_card_id UUID,
-  p_fee NUMERIC DEFAULT NULL
+  p_fee NUMERIC DEFAULT NULL,
+  p_category TEXT DEFAULT NULL
 )
 RETURNS UUID
 LANGUAGE plpgsql
@@ -388,13 +429,14 @@ BEGIN
   END IF;
 
   INSERT INTO transfers (
-    user_id, amount, date, note, fee,
+    user_id, amount, date, note, fee, category,
     source_type, source_wallet_id,
     destination_type, destination_wallet_id, destination_savings_goal_id, destination_debt_id, destination_credit_card_id
   )
   VALUES (
     auth.uid(), p_amount, p_date, p_note,
     CASE WHEN p_fee IS NOT NULL AND p_fee > 0 THEN p_fee ELSE NULL END,
+    CASE WHEN p_destination_type = 'wallet' THEN p_category ELSE NULL END,
     p_source_type, p_source_wallet_id,
     p_destination_type, p_destination_wallet_id, p_destination_savings_goal_id, p_destination_debt_id, p_destination_credit_card_id
   )
@@ -431,7 +473,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.create_transfer(
-  NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID, UUID, UUID, NUMERIC
+  NUMERIC, DATE, TEXT, TEXT, UUID, TEXT, UUID, UUID, UUID, UUID, NUMERIC, TEXT
 ) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.delete_linked_transfer()
@@ -510,6 +552,7 @@ ALTER TABLE credit_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_card_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE savings_goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE savings_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE balance_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transfers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE grocery_lists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE grocery_items ENABLE ROW LEVEL SECURITY;
@@ -721,6 +764,14 @@ CREATE POLICY "Users can update own savings transactions"
 CREATE POLICY "Users can delete own savings transactions"
   ON savings_transactions FOR DELETE
   USING (goal_id IN (SELECT id FROM savings_goals WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can view their balance verifications"
+  ON balance_verifications FOR SELECT
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert their balance verifications"
+  ON balance_verifications FOR INSERT
+  WITH CHECK (user_id = auth.uid());
 
 -- transfers: visible to the creator and to members of any touched shared wallet.
 CREATE POLICY "Users can view relevant transfers"

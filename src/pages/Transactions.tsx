@@ -1,17 +1,22 @@
 import { useState } from 'react'
+import { VerificationStatusBanner } from '../components/verification/VerificationStatusBanner'
+import { VerifyBalanceModal } from '../components/verification/VerifyBalanceModal'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
-import { PageHeader } from '../components/ui/PageHeader'
+import { PageHeader, PrimaryButton } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { WalletSwitcher } from '../components/wallets/WalletSwitcher'
+import { useBalanceVerifications } from '../hooks/useBalanceVerifications'
 import { useCreditCards } from '../hooks/useCreditCards'
 import { useDebts } from '../hooks/useDebts'
 import { useSavingsGoals } from '../hooks/useSavings'
+import { useToast } from '../hooks/useToast'
 import { type CombinedTransaction, useTransactionsData } from '../hooks/useTransactionsData'
 import { useWallets } from '../hooks/useWallets'
 import { listPanel } from '../lib/classes'
 import { formatCurrency, formatDate } from '../lib/format'
 import { transferDestinationLabel, transferSourceLabel } from '../lib/transfers'
+import { transferCategoryLabel } from '../types/database'
 
 const typeBadgeClasses: Record<CombinedTransaction['type'], string> = {
   income: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400',
@@ -33,8 +38,48 @@ export function TransactionsPage() {
   const { items: debts } = useDebts()
   const { items: creditCards } = useCreditCards()
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
+  const [showVerifyModal, setShowVerifyModal] = useState(false)
 
   const { data, loading, error } = useTransactionsData(activeWalletId)
+  const { latestForScope, createVerification } = useBalanceVerifications()
+  const { showToast } = useToast()
+
+  const activeScope = {
+    scopeType: (activeWalletId ? 'wallet' : 'personal') as 'wallet' | 'personal',
+    walletId: activeWalletId,
+    savingsGoalId: null,
+  }
+
+  const latestVerification = latestForScope(activeScope)
+
+  async function handleVerify(input: {
+    scopeType: 'personal' | 'wallet' | 'savings_goal'
+    walletId: string | null
+    savingsGoalId: string | null
+    actualAmount: number
+    date: string
+    note: string | null
+  }) {
+    const result = await createVerification(input)
+    if (result.error) {
+      showToast(result.error, 'error')
+      return { error: result.error }
+    }
+
+    const verified = result.verification
+    if (!verified) {
+      showToast('Balance verification failed.', 'error')
+      return { error: 'Balance verification failed.' }
+    }
+
+    if (Math.abs(Number(verified.delta)) < 0.01) {
+      showToast('Balance verified. No adjustment was needed.', 'success')
+    } else {
+      showToast('Balance verified. A reconciliation transaction was added.', 'success')
+    }
+
+    return { error: null }
+  }
 
   function rowLabel(txn: CombinedTransaction): string {
     if (txn.type !== 'transfer') return txn.label
@@ -72,9 +117,17 @@ export function TransactionsPage() {
       <PageHeader
         title="Transactions"
         description="All-time overview"
+        action={<PrimaryButton onClick={() => setShowVerifyModal(true)}>Verify balance</PrimaryButton>}
       />
 
       <WalletSwitcher wallets={wallets} activeWalletId={activeWalletId} onChange={setActiveWalletId} />
+
+      <div className="mb-4">
+        <VerificationStatusBanner
+          latestVerifiedAt={latestVerification?.created_at ?? null}
+          label={activeWalletId ? 'This wallet' : 'Personal balance'}
+        />
+      </div>
 
       {error && (
         <div className="mb-4">
@@ -142,6 +195,9 @@ export function TransactionsPage() {
                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                           {formatDate(txn.date)}
                           {txn.type === 'transfer' && txn.fee ? ` · ${formatCurrency(txn.fee)} fee` : ''}
+                          {txn.type === 'transfer' && txn.transfer.category
+                            ? ` · ${transferCategoryLabel(txn.transfer.category)}`
+                            : ''}
                           {paymentSource ? ` · ${paymentSource}` : ''}
                         </p>
                       </div>
@@ -153,6 +209,16 @@ export function TransactionsPage() {
             )}
           </section>
         </>
+      )}
+
+      {showVerifyModal && (
+        <VerifyBalanceModal
+          wallets={wallets}
+          savingsGoals={goals}
+          defaultScope={activeScope}
+          onClose={() => setShowVerifyModal(false)}
+          onVerify={handleVerify}
+        />
       )}
     </div>
   )
