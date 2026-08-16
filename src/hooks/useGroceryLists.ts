@@ -9,22 +9,35 @@ import {
   useOnlineStatus,
   writeCache,
 } from '../lib/offlineStore'
-import type { GroceryList, GroceryListInsert, GroceryListUpdate } from '../types/database'
+import type {
+  GroceryList,
+  GroceryListInsert,
+  GroceryListInvite,
+  GroceryListMember,
+  GroceryListUpdate,
+} from '../types/database'
 import { useAuth } from './useAuth'
 
 const CACHE_KEY = 'lists'
 
+export interface GroceryListWithMembers extends GroceryList {
+  members: GroceryListMember[]
+}
+
 export function useGroceryLists() {
   const { user } = useAuth()
   const online = useOnlineStatus()
-  const [lists, setLists] = useState<GroceryList[]>(() => readCache<GroceryList[]>(CACHE_KEY, []))
+  const [lists, setLists] = useState<GroceryListWithMembers[]>(() =>
+    readCache<GroceryListWithMembers[]>(CACHE_KEY, []),
+  )
+  const [pendingInvites, setPendingInvites] = useState<GroceryListInvite[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState<Set<string>>(() => pendingIds('grocery_lists'))
   const listsRef = useRef(lists)
   listsRef.current = lists
 
-  const persist = useCallback((next: GroceryList[]) => {
+  const persist = useCallback((next: GroceryListWithMembers[]) => {
     listsRef.current = next
     setLists(next)
     writeCache(CACHE_KEY, next)
@@ -49,24 +62,44 @@ export function useGroceryLists() {
       return
     }
 
-    const { data, error: fetchError } = await supabase
-      .from('grocery_lists')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+    const [listsResult, membersResult, invitesResult] = await Promise.all([
+      supabase.from('grocery_lists').select('*').order('created_at', { ascending: false }),
+      supabase.from('grocery_list_members').select('*'),
+      supabase.from('grocery_list_invites').select('*').eq('status', 'pending'),
+    ])
 
+    const fetchError = listsResult.error ?? membersResult.error
     if (fetchError) {
       setError(fetchError.message)
+      setLoading(false)
+      return
+    }
+
+    const serverLists = (listsResult.data as GroceryList[]) ?? []
+    const members = (membersResult.data as GroceryListMember[]) ?? []
+    const server = serverLists.map((list) => ({
+      ...list,
+      members: members.filter((member) => member.list_id === list.id),
+    }))
+
+    const stillPending = pendingIds('grocery_lists')
+    // Keep any local list that hasn't synced yet so we don't briefly
+    // "lose" something the user just created while offline.
+    const unsynced = listsRef.current.filter(
+      (l) => stillPending.has(l.id) && !server.some((s) => s.id === l.id),
+    )
+    persist([...unsynced, ...server])
+    setPending(stillPending)
+
+    if (invitesResult.error) {
+      setError((prev) => prev ?? invitesResult.error!.message)
+      setPendingInvites([])
     } else {
-      const server = (data as GroceryList[]) ?? []
-      const stillPending = pendingIds('grocery_lists')
-      // Keep any local list that hasn't synced yet so we don't briefly
-      // "lose" something the user just created while offline.
-      const unsynced = listsRef.current.filter(
-        (l) => stillPending.has(l.id) && !server.some((s) => s.id === l.id),
+      const pendingRows = (invitesResult.data as GroceryListInvite[]) ?? []
+      const myEmail = user.email?.toLowerCase()
+      setPendingInvites(
+        pendingRows.filter((invite) => myEmail && invite.invited_email.toLowerCase() === myEmail),
       )
-      persist([...unsynced, ...server])
-      setPending(stillPending)
     }
 
     setLoading(false)
@@ -86,11 +119,12 @@ export function useGroceryLists() {
     async (input: Omit<GroceryListInsert, 'id'>) => {
       if (!user) return { error: 'Not authenticated.' }
 
-      const row: GroceryList = {
+      const row: GroceryListWithMembers = {
         id: crypto.randomUUID(),
         user_id: user.id,
         name: input.name,
         created_at: new Date().toISOString(),
+        members: [],
       }
 
       persist([row, ...listsRef.current])
@@ -110,7 +144,7 @@ export function useGroceryLists() {
       const existing = listsRef.current.find((l) => l.id === id)
       if (!existing) return { error: 'List not found.' }
 
-      const row: GroceryList = { ...existing, ...input }
+      const row: GroceryListWithMembers = { ...existing, ...input }
       persist(listsRef.current.map((l) => (l.id === id ? row : l)))
       setPending((prev) => new Set(prev).add(id))
       enqueueOp({ id, table: 'grocery_lists', action: 'upsert', payload: row })
@@ -146,5 +180,71 @@ export function useGroceryLists() {
     [user, pending, persist],
   )
 
-  return { lists, loading, error, online, pendingIds: pending, create, update, remove, refresh }
+  const inviteToList = useCallback(
+    async (listId: string, email: string) => {
+      if (!supabase || !user) return { error: 'Not authenticated.' }
+
+      if (pending.has(listId)) {
+        return { error: 'This list is not synced yet. Wait for sync before sharing.' }
+      }
+
+      const normalizedEmail = email.trim().toLowerCase()
+      if (!normalizedEmail) return { error: 'Enter an email address.' }
+      if (normalizedEmail === user.email?.toLowerCase()) {
+        return { error: "You can't invite yourself." }
+      }
+
+      const { error: insertError } = await supabase.from('grocery_list_invites').insert({
+        list_id: listId,
+        invited_email: normalizedEmail,
+        invited_by: user.id,
+      })
+
+      if (insertError) return { error: insertError.message }
+
+      await refresh()
+      return { error: null }
+    },
+    [user, pending, refresh],
+  )
+
+  const respondToInvite = useCallback(
+    async (invite: GroceryListInvite, accept: boolean) => {
+      if (!supabase || !user) return { error: 'Not authenticated.' }
+
+      const { error: updateError } = await supabase
+        .from('grocery_list_invites')
+        .update({ status: accept ? 'accepted' : 'declined' })
+        .eq('id', invite.id)
+
+      if (updateError) return { error: updateError.message }
+
+      if (accept) {
+        const { error: memberError } = await supabase
+          .from('grocery_list_members')
+          .insert({ list_id: invite.list_id, user_id: user.id, role: 'member' })
+
+        if (memberError) return { error: memberError.message }
+      }
+
+      await refresh()
+      return { error: null }
+    },
+    [user, refresh],
+  )
+
+  return {
+    lists,
+    pendingInvites,
+    loading,
+    error,
+    online,
+    pendingIds: pending,
+    create,
+    update,
+    remove,
+    inviteToList,
+    respondToInvite,
+    refresh,
+  }
 }

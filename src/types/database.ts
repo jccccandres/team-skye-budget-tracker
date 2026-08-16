@@ -2,6 +2,7 @@ export type DebtType = 'one_time' | 'installment'
 export type DebtCategory = 'other' | 'car_loan' | 'house_loan'
 export type WalletRole = 'owner' | 'member'
 export type InviteStatus = 'pending' | 'accepted' | 'declined'
+export type GroceryListMemberRole = 'member'
 export type SavingsTransactionType = 'deposit' | 'withdrawal'
 export type TransferSourceType = 'personal' | 'wallet'
 export type TransferDestinationType = 'wallet' | 'savings_goal' | 'debt' | 'credit_card'
@@ -170,6 +171,22 @@ export interface GroceryList {
   id: string
   user_id: string
   name: string
+  created_at: string
+}
+
+export interface GroceryListMember {
+  list_id: string
+  user_id: string
+  role: GroceryListMemberRole
+  joined_at: string
+}
+
+export interface GroceryListInvite {
+  id: string
+  list_id: string
+  invited_email: string
+  invited_by: string
+  status: InviteStatus
   created_at: string
 }
 

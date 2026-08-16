@@ -5,6 +5,8 @@
 
 -- 1. Tables (CASCADE removes policies, triggers, and FK dependencies)
 DROP TABLE IF EXISTS grocery_items CASCADE;
+DROP TABLE IF EXISTS grocery_list_invites CASCADE;
+DROP TABLE IF EXISTS grocery_list_members CASCADE;
 DROP TABLE IF EXISTS grocery_lists CASCADE;
 DROP TABLE IF EXISTS balance_verifications CASCADE;
 DROP TABLE IF EXISTS transfers CASCADE;
@@ -34,6 +36,8 @@ DROP FUNCTION IF EXISTS public.is_wallet_member(UUID) CASCADE;
 DROP FUNCTION IF EXISTS public.recalc_savings_goal_balance() CASCADE;
 DROP FUNCTION IF EXISTS public.apply_debt_payment() CASCADE;
 DROP FUNCTION IF EXISTS public.delete_linked_transfer() CASCADE;
+DROP FUNCTION IF EXISTS public.is_grocery_list_owner(UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.is_grocery_list_member(UUID) CASCADE;
 
 -- 3. Types
 DROP TYPE IF EXISTS debt_type;
