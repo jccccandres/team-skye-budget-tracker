@@ -17,6 +17,7 @@ import { ChangePasswordPage } from './pages/ChangePassword'
 import { WalletsPage } from './pages/Wallets'
 import { CreditCardsPage } from './pages/CreditCards'
 import { ReportsPage } from './pages/Reports'
+import { IncomeReportsPage } from './pages/IncomeReports'
 import { TransactionsPage } from './pages/Transactions'
 import { GroceryListsPage } from './pages/GroceryLists'
 import { GroceryListDetailPage } from './pages/GroceryListDetail'
@@ -44,7 +45,9 @@ export default function App() {
                   <Route path="/debts" element={<DebtsPage />} />
                   <Route path="/credit-cards" element={<CreditCardsPage />} />
                   <Route path="/savings" element={<SavingsPage />} />
-                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/reports" element={<Navigate to="/reports/expenses" replace />} />
+                  <Route path="/reports/expenses" element={<ReportsPage />} />
+                  <Route path="/reports/income" element={<IncomeReportsPage />} />
                   <Route path="/wallets" element={<WalletsPage />} />
                   <Route path="/grocery" element={<GroceryListsPage />} />
                   <Route path="/grocery/:listId" element={<GroceryListDetailPage />} />

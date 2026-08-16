@@ -41,7 +41,7 @@ function ReportsIcon() {
 const navItems: { to: string; label: string; icon: ReactNode }[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/transactions', label: 'Transactions', icon: <TransactionsIcon /> },
-  { to: '/reports', label: 'Reports', icon: <ReportsIcon /> },
+  { to: '/reports/expenses', label: 'Reports', icon: <ReportsIcon /> },
 ]
 
 function bottomNavClass({ isActive }: { isActive: boolean }) {

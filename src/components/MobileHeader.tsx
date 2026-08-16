@@ -6,8 +6,11 @@ import { useAuth } from '../hooks/useAuth'
 
 const menuNavGroups = [
   {
-    label: 'Overview',
-    items: [{ to: '/reports', label: 'Reports', icon: BarChart3 }],
+    label: 'Reports',
+    items: [
+      { to: '/reports/expenses', label: 'Expense report', icon: BarChart3 },
+      { to: '/reports/income', label: 'Income report', icon: BarChart3 },
+    ],
   },
   {
     label: 'Money',
@@ -94,11 +97,15 @@ export function MobileHeader() {
                   <div className="space-y-0.5 pb-2">
                     {group.items.map((item) => {
                       const Icon = item.icon
+                      const isReportChild = item.to.startsWith('/reports/')
                       return (
                         <NavLink
                           key={item.to}
                           to={item.to}
-                          className={menuNavClass}
+                          className={({ isActive }) => [
+                            menuNavClass({ isActive }),
+                            isReportChild ? 'ml-3' : '',
+                          ].filter(Boolean).join(' ')}
                           onClick={closeMenu}
                         >
                           <Icon className="h-4 w-4 shrink-0" />

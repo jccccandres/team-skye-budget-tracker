@@ -80,7 +80,7 @@ export function ReportsPage() {
   return (
     <div>
       <PageHeader
-        title="Reports"
+        title="Expense reports"
         description={`${formatDate(range.start)} – ${formatDate(range.end)}`}
         action={<PrimaryButton onClick={() => setShowVerifyModal(true)}>Verify balance</PrimaryButton>}
       />

@@ -12,7 +12,13 @@ const navGroups = [
     label: 'Overview',
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/reports', label: 'Reports', icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Reports',
+    items: [
+      { to: '/reports/expenses', label: 'Expense report', icon: BarChart3 },
+      { to: '/reports/income', label: 'Income report', icon: BarChart3 },
     ],
   },
   {
@@ -70,8 +76,16 @@ export function Layout() {
               <div className="space-y-0.5 pb-2">
                 {group.items.map((item) => {
                   const Icon = item.icon
+                  const isReportChild = item.to.startsWith('/reports/')
                   return (
-                    <NavLink key={item.to} to={item.to} className={navLinkClass}>
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) => [
+                        navLinkClass({ isActive }),
+                        isReportChild ? 'ml-3' : '',
+                      ].filter(Boolean).join(' ')}
+                    >
                       <Icon className="h-4 w-4 shrink-0" />
                       {item.label}
                     </NavLink>
