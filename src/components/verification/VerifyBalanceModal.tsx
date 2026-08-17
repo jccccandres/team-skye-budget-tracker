@@ -126,10 +126,11 @@ export function VerifyBalanceModal({
           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Actual amount</span>
           <input
             type="number"
+            inputMode="decimal"
             step="0.01"
             value={actualAmount}
             onChange={(e) => setActualAmount(e.target.value)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 sm:text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             placeholder="0.00"
             required
           />
