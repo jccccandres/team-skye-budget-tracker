@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TransferHistory } from '../components/transfers/TransferHistory'
 import { ProgressBar } from '../components/savings/ProgressBar'
-import { VerificationStatusBanner } from '../components/verification/VerificationStatusBanner'
 import { VerifyBalanceModal } from '../components/verification/VerifyBalanceModal'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
@@ -56,7 +55,7 @@ function CollapsibleWalletSection({
         onClick={onToggle}
         className="mb-3 flex items-center justify-between w-full group"
       >
-        <div>
+        <div className="text-left">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {wallet.name}
             {wallet.members.length > 1 ? ' (shared)' : ''}
@@ -295,17 +294,13 @@ export function DashboardPage() {
         action={<PrimaryButton onClick={() => setShowVerifyModal(true)}>Verify balance</PrimaryButton>}
       />
 
-      <div className="mb-4 space-y-2">
-        <VerificationStatusBanner
-          latestVerifiedAt={personalLatest?.created_at ?? null}
-          label="Personal balance"
-        />
-        {unverifiedSummaryText && (
+      {unverifiedSummaryText && (
+        <div className="mb-4">
           <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             {unverifiedSummaryText}
           </p>
-        )}
-      </div>
+        </div>
+      )}
 
       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
 
@@ -331,9 +326,14 @@ export function DashboardPage() {
               onClick={() => setIsPersonalExpanded(!isPersonalExpanded)}
               className="mb-3 flex items-center justify-between w-full group"
             >
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Personal
-              </h3>
+              <div className="text-left">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Personal
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {personalLatest ? `Last verified ${formatDateTime(personalLatest.created_at)}` : 'Not verified yet'}
+                </p>
+              </div>
               <span
                 className="text-lg text-slate-400 transition-transform group-hover:text-slate-600 dark:group-hover:text-slate-300"
                 style={{ transform: isPersonalExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
