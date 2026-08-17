@@ -1,6 +1,7 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ConfigError } from './components/ConfigError'
 import { AuthProvider } from './contexts/AuthContext'
+import { PreferencesProvider } from './contexts/PreferencesContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { Layout } from './components/Layout'
@@ -25,6 +26,7 @@ import { GroceryListDetailPage } from './pages/GroceryListDetail'
 export default function App() {
   return (
     <ThemeProvider>
+      <PreferencesProvider>
       {!isSupabaseConfigured ? (
         <ConfigError />
       ) : (
@@ -62,6 +64,7 @@ export default function App() {
           </AuthProvider>
         </ToastProvider>
       )}
+      </PreferencesProvider>
     </ThemeProvider>
   )
 }

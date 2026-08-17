@@ -1,23 +1,32 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { DashboardActionMenu } from '../components/quick-add/DashboardActionMenu'
+import { QuickAddModals } from '../components/quick-add/QuickAddModals'
+import type { QuickAddAction, QuickAddScope } from '../components/quick-add/types'
 import { TransferHistory } from '../components/transfers/TransferHistory'
 import { ProgressBar } from '../components/savings/ProgressBar'
-import { VerifyBalanceModal } from '../components/verification/VerifyBalanceModal'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorAlert } from '../components/ui/ErrorAlert'
-import { PageHeader, PrimaryButton } from '../components/ui/PageHeader'
+import { PageHeader } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
+import { DashboardStatCards, type DashboardStatCardActions } from '../components/dashboard/DashboardStatCards'
 import { WalletDashboardSection } from '../components/wallets/WalletDashboardSection'
 import { useBalanceVerifications } from '../hooks/useBalanceVerifications'
 import { useDashboard } from '../hooks/useDashboard'
+import { usePreferences } from '../hooks/usePreferences'
 import { useSavingsGoals } from '../hooks/useSavings'
-import { useToast } from '../hooks/useToast'
 import { useWallets } from '../hooks/useWallets'
 import { listPanel } from '../lib/classes'
 import { formatCurrency, formatDate, formatDateTime, formatMonthDay } from '../lib/format'
 import { debtCategoryLabel, type DebtCategory, type Wallet } from '../types/database'
 import type { DebtBreakdown } from '../hooks/useDashboard'
 import type { WalletWithMembers } from '../hooks/useWallets'
+
+interface DashboardActionContext {
+  title: string
+  scope: QuickAddScope
+  walletId: string | null
+}
 
 function expenseSourceLabel(walletId: string | null, wallets: Wallet[]): string {
   if (!walletId) return 'Personal'
@@ -41,21 +50,23 @@ function CollapsibleWalletSection({
   latestVerifiedAt,
   isExpanded,
   onToggle,
+  cardActions,
 }: {
   wallet: WalletWithMembers
   data: ReturnType<typeof useDashboard>['data']
   latestVerifiedAt: string | null
   isExpanded: boolean
   onToggle: () => void
+  cardActions?: DashboardStatCardActions
 }) {
   return (
     <section className="mt-8">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="mb-3 flex items-center justify-between w-full group"
-      >
-        <div className="text-left">
+      <div className="mb-3 flex items-center justify-between w-full">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex-1 text-left group"
+        >
           <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {wallet.name}
             {wallet.members.length > 1 ? ' (shared)' : ''}
@@ -63,22 +74,25 @@ function CollapsibleWalletSection({
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {latestVerifiedAt ? `Last verified ${formatDateTime(latestVerifiedAt)}` : 'Not verified yet'}
           </p>
-        </div>
-        <span
-          className="text-lg text-slate-400 transition-transform group-hover:text-slate-600 dark:group-hover:text-slate-300"
+        </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={isExpanded ? 'Collapse wallet section' : 'Expand wallet section'}
+          className="ml-2 shrink-0 p-1 text-lg text-slate-400 transition-transform hover:text-slate-600 dark:hover:text-slate-300"
           style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
         >
           ▼
-        </span>
-      </button>
+        </button>
+      </div>
 
       {isExpanded ? (
         <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: '1000px' }}>
-          <WalletDashboardSection walletData={data} />
+          <WalletDashboardSection walletData={data} actions={cardActions} />
         </div>
       ) : (
         <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: '125px' }}>
-          <WalletNetBalanceCard walletData={data} />
+          <WalletNetBalanceCard walletData={data} onNetBalance={cardActions?.onNetBalance} />
         </div>
       )}
     </section>
@@ -87,48 +101,26 @@ function CollapsibleWalletSection({
 
 function PersonalDashboardSection({
   data,
+  cardActions,
 }: {
   data: ReturnType<typeof useDashboard>['data']
+  cardActions?: DashboardStatCardActions
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard
-        label="Total income"
-        value={formatCurrency(data.monthIncome)}
-        hint="All-time"
-        variant="positive"
-      />
-      <StatCard
-        label="Total expenses"
-        value={formatCurrency(data.monthExpenses)}
-        hint="All-time"
-        variant="negative"
-        breakdown={
-          data.creditCardExpenses > 0
-            ? { label: 'Credit card', value: formatCurrency(data.creditCardExpenses), variant: 'warning' }
-            : undefined
-        }
-      />
-      <StatCard
-        label="Transferred out"
-        value={formatCurrency(data.transferredOut)}
-        hint="Your transfers to wallets/savings, all-time"
-        variant={data.transferredOut > 0 ? 'negative' : 'default'}
-      />
-      <StatCard
-        label="Net balance"
-        value={formatCurrency(data.netBalance)}
-        hint="Income minus wallet-paid expenses minus transfers out"
-        variant={data.netBalance >= 0 ? 'positive' : 'negative'}
-      />
-    </div>
+    <DashboardStatCards
+      data={data}
+      actions={cardActions}
+      transferHint="Your transfers to wallets/savings, all-time"
+    />
   )
 }
 
 function PersonalNetBalanceCard({
   data,
+  onNetBalance,
 }: {
   data: ReturnType<typeof useDashboard>['data']
+  onNetBalance?: () => void
 }) {
   return (
     <StatCard
@@ -136,14 +128,17 @@ function PersonalNetBalanceCard({
       value={formatCurrency(data.netBalance)}
       hint="Income minus wallet-paid expenses minus transfers out"
       variant={data.netBalance >= 0 ? 'positive' : 'negative'}
+      onClick={onNetBalance}
     />
   )
 }
 
 function WalletNetBalanceCard({
   walletData,
+  onNetBalance,
 }: {
   walletData: ReturnType<typeof useDashboard>['data']
+  onNetBalance?: () => void
 }) {
   return (
     <StatCard
@@ -151,6 +146,7 @@ function WalletNetBalanceCard({
       value={formatCurrency(walletData.netBalance)}
       hint="Income minus wallet-paid expenses minus transfers out"
       variant={walletData.netBalance >= 0 ? 'positive' : 'negative'}
+      onClick={onNetBalance}
     />
   )
 }
@@ -162,11 +158,13 @@ function WalletWithPreloadedData({
   latestVerifiedAt,
   isExpanded,
   onToggle,
+  cardActions,
 }: {
   wallet: WalletWithMembers
   latestVerifiedAt: string | null
   isExpanded: boolean
   onToggle: () => void
+  cardActions?: DashboardStatCardActions
 }) {
   const { data } = useDashboard(wallet.id)
   return (
@@ -176,17 +174,19 @@ function WalletWithPreloadedData({
       latestVerifiedAt={latestVerifiedAt}
       isExpanded={isExpanded}
       onToggle={onToggle}
+      cardActions={cardActions}
     />
   )
 }
 
-// Desktop wallet section (always expanded, no toggle)
 function WalletDesktopSection({
   wallet,
   latestVerifiedAt,
+  cardActions,
 }: {
   wallet: WalletWithMembers
   latestVerifiedAt: string | null
+  cardActions?: DashboardStatCardActions
 }) {
   const { data } = useDashboard(wallet.id)
   return (
@@ -200,23 +200,29 @@ function WalletDesktopSection({
           {latestVerifiedAt ? `Last verified ${formatDateTime(latestVerifiedAt)}` : 'Not verified yet'}
         </p>
       </div>
-      <WalletDashboardSection walletData={data} />
+      <WalletDashboardSection walletData={data} actions={cardActions} />
     </section>
   )
 }
 
 export function DashboardPage() {
-  // 0 = current month, -1 = last month, etc. Capped so you can't browse
-  // into the future.
   const [expandedWallets, setExpandedWallets] = useState(new Set<string>())
   const [isPersonalExpanded, setIsPersonalExpanded] = useState(false)
-  const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [actionMenu, setActionMenu] = useState<DashboardActionContext | null>(null)
+  const [activeForm, setActiveForm] = useState<QuickAddAction | null>(null)
+  const [formWalletId, setFormWalletId] = useState<string | null>(null)
+  const [verifyScope, setVerifyScope] = useState<QuickAddScope>({
+    scopeType: 'personal',
+    walletId: null,
+    savingsGoalId: null,
+  })
 
+  const { showFab } = usePreferences()
+  const actionsEnabled = !showFab
   const { data, loading, error } = useDashboard(undefined)
   const { wallets } = useWallets()
   const { items: savingsGoals, loading: savingsLoading } = useSavingsGoals()
-  const { latestForScope, createVerification } = useBalanceVerifications()
-  const { showToast } = useToast()
+  const { latestForScope } = useBalanceVerifications()
 
   const personalLatest = latestForScope({
     scopeType: 'personal',
@@ -257,33 +263,59 @@ export function DashboardPage() {
     return `Not yet verified: ${parts.join(', ')}.`
   }, [walletVerificationInfo, savingsGoals, latestForScope, personalLatest])
 
-  async function handleVerify(input: {
-    scopeType: 'personal' | 'wallet' | 'savings_goal'
-    walletId: string | null
-    savingsGoalId: string | null
-    actualAmount: number
-    date: string
-    note: string | null
-  }) {
-    const result = await createVerification(input)
-    if (result.error) {
-      showToast(result.error, 'error')
-      return { error: result.error }
-    }
+  function openActionMenu(context: DashboardActionContext) {
+    setActionMenu(context)
+  }
 
-    const verified = result.verification
-    if (!verified) {
-      showToast('Balance verification failed.', 'error')
-      return { error: 'Balance verification failed.' }
-    }
+  function handleActionSelect(action: QuickAddAction) {
+    if (!actionMenu) return
 
-    if (Math.abs(Number(verified.delta)) < 0.01) {
-      showToast('Balance verified. No adjustment was needed.', 'success')
-    } else {
-      showToast('Balance verified. A reconciliation transaction was added.', 'success')
-    }
+    setFormWalletId(actionMenu.walletId)
+    setVerifyScope(actionMenu.scope)
+    setActionMenu(null)
+    setActiveForm(action)
+  }
 
-    return { error: null }
+  function closeActiveForm() {
+    setActiveForm(null)
+  }
+
+  function openDirectAction(action: QuickAddAction, context: DashboardActionContext) {
+    setFormWalletId(context.walletId)
+    setVerifyScope(context.scope)
+    setActiveForm(action)
+  }
+
+  function buildCardActions(context: DashboardActionContext): DashboardStatCardActions | undefined {
+    if (!actionsEnabled) return undefined
+    return {
+      onIncome: () => openDirectAction('income', context),
+      onExpense: () => openDirectAction('expense', context),
+      onTransfer: () => openDirectAction('transfer', context),
+      onNetBalance: () => openActionMenu(context),
+    }
+  }
+
+  const personalActionContext: DashboardActionContext = {
+    title: 'Personal',
+    scope: { scopeType: 'personal', walletId: null, savingsGoalId: null },
+    walletId: null,
+  }
+
+  function walletActionContext(wallet: WalletWithMembers): DashboardActionContext {
+    return {
+      title: wallet.name,
+      scope: { scopeType: 'wallet', walletId: wallet.id, savingsGoalId: null },
+      walletId: wallet.id,
+    }
+  }
+
+  function savingsActionContext(goalName: string, goalId: string): DashboardActionContext {
+    return {
+      title: goalName,
+      scope: { scopeType: 'savings_goal', walletId: null, savingsGoalId: goalId },
+      walletId: null,
+    }
   }
 
   return (
@@ -291,7 +323,6 @@ export function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="All-time overview"
-        action={<PrimaryButton onClick={() => setShowVerifyModal(true)}>Verify balance</PrimaryButton>}
       />
 
       {unverifiedSummaryText && (
@@ -316,7 +347,7 @@ export function DashboardPage() {
                 {personalLatest ? `Last verified ${formatDateTime(personalLatest.created_at)}` : 'Not verified yet'}
               </p>
             </div>
-            <PersonalDashboardSection data={data} />
+            <PersonalDashboardSection data={data} cardActions={buildCardActions(personalActionContext)} />
           </div>
 
           {/* Mobile: Collapsible */}
@@ -344,11 +375,14 @@ export function DashboardPage() {
 
             {isPersonalExpanded ? (
               <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: '1000px' }}>
-                <PersonalDashboardSection data={data} />
+                <PersonalDashboardSection data={data} cardActions={buildCardActions(personalActionContext)} />
               </div>
             ) : (
               <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: '125px' }}>
-                <PersonalNetBalanceCard data={data} />
+                <PersonalNetBalanceCard
+                  data={data}
+                  onNetBalance={buildCardActions(personalActionContext)?.onNetBalance}
+                />
               </div>
             )}
           </section>
@@ -364,6 +398,7 @@ export function DashboardPage() {
                     latestVerifiedAt={
                       walletVerificationInfo.find((item) => item.walletId === wallet.id)?.latest?.created_at ?? null
                     }
+                    cardActions={buildCardActions(walletActionContext(wallet))}
                   />
                 ))}
               </div>
@@ -389,6 +424,7 @@ export function DashboardPage() {
                         return next
                       })
                     }}
+                    cardActions={buildCardActions(walletActionContext(wallet))}
                   />
                 ))}
               </div>
@@ -418,27 +454,55 @@ export function DashboardPage() {
                   )}
                   hint={`Across ${savingsGoals.length} goal${savingsGoals.length === 1 ? '' : 's'}`}
                   variant="positive"
+                  onClick={
+                    actionsEnabled
+                      ? () =>
+                          openActionMenu({
+                            title: 'Savings',
+                            scope: { scopeType: 'personal', walletId: null, savingsGoalId: null },
+                            walletId: null,
+                          })
+                      : undefined
+                  }
                 />
                 <div className="mt-4 space-y-3">
-                  {savingsGoals.map((goal) => (
-                    <div
-                      key={goal.id}
-                      className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium text-slate-900 dark:text-slate-100">{goal.name}</p>
-                        <p className="shrink-0 text-sm text-slate-500 dark:text-slate-400">
-                          {formatCurrency(goal.current_amount)}
-                          {goal.target_amount ? ` of ${formatCurrency(goal.target_amount)}` : ' saved'}
-                        </p>
-                      </div>
-                      {goal.target_amount ? (
-                        <div className="mt-3">
-                          <ProgressBar current={goal.current_amount} target={goal.target_amount} />
+                  {savingsGoals.map((goal) => {
+                    const goalContent = (
+                      <>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium text-slate-900 dark:text-slate-100">{goal.name}</p>
+                          <p className="shrink-0 text-sm text-slate-500 dark:text-slate-400">
+                            {formatCurrency(goal.current_amount)}
+                            {goal.target_amount ? ` of ${formatCurrency(goal.target_amount)}` : ' saved'}
+                          </p>
                         </div>
-                      ) : null}
-                    </div>
-                  ))}
+                        {goal.target_amount ? (
+                          <div className="mt-3">
+                            <ProgressBar current={goal.current_amount} target={goal.target_amount} />
+                          </div>
+                        ) : null}
+                      </>
+                    )
+
+                    return (
+                      <div
+                        key={goal.id}
+                        className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+                      >
+                        {actionsEnabled ? (
+                          <button
+                            type="button"
+                            onClick={() => openActionMenu(savingsActionContext(goal.name, goal.id))}
+                            className="w-full cursor-pointer rounded-lg text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                          >
+                            {goalContent}
+                          </button>
+                        ) : (
+                          goalContent
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </>
             )}
@@ -591,15 +655,21 @@ export function DashboardPage() {
         </>
       )}
 
-      {showVerifyModal && (
-        <VerifyBalanceModal
-          wallets={wallets}
-          savingsGoals={savingsGoals}
-          defaultScope={{ scopeType: 'personal', walletId: null, savingsGoalId: null }}
-          onClose={() => setShowVerifyModal(false)}
-          onVerify={handleVerify}
+      {actionMenu && (
+        <DashboardActionMenu
+          title={actionMenu.title}
+          onSelect={handleActionSelect}
+          onClose={() => setActionMenu(null)}
         />
       )}
+
+      <QuickAddModals
+        activeForm={activeForm}
+        walletId={formWalletId}
+        verifyScope={verifyScope}
+        onClose={closeActiveForm}
+        onWalletIdChange={setFormWalletId}
+      />
     </div>
   )
 }

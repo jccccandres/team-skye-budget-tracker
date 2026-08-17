@@ -1,60 +1,27 @@
 import { useState } from 'react'
-import { ExpenseForm } from './expenses/ExpenseForm'
-import { IncomeForm } from './income/IncomeForm'
-import { TransferForm } from './transfers/TransferForm'
-import { FormField, SelectInput } from './ui/FormField'
-import { Modal } from './ui/Modal'
-import { useExpenses } from '../hooks/useExpenses'
-import { useIncome } from '../hooks/useIncome'
-import { useWallets } from '../hooks/useWallets'
+import { usePreferences } from '../hooks/usePreferences'
+import { QuickAddModals } from './quick-add/QuickAddModals'
+import { quickAddActions, type QuickAddAction, type QuickAddScope } from './quick-add/types'
 
-type ActiveForm = 'transfer' | 'expense' | 'income' | null
-
-const actions = [
-  { key: 'transfer' as const, label: 'Transfer' },
-  { key: 'expense' as const, label: 'Expense' },
-  { key: 'income' as const, label: 'Income' },
-]
-
-function WalletPicker({
-  walletId,
-  onChange,
-}: {
-  walletId: string | null
-  onChange: (id: string | null) => void
-}) {
-  const { wallets } = useWallets()
-  if (wallets.length === 0) return null
-
-  return (
-    <FormField label="Log to" htmlFor="quick-add-wallet">
-      <SelectInput
-        id="quick-add-wallet"
-        value={walletId ?? ''}
-        onChange={(e) => onChange(e.target.value || null)}
-      >
-        <option value="">Personal</option>
-        {wallets.map((w) => (
-          <option key={w.id} value={w.id}>
-            {w.name}
-          </option>
-        ))}
-      </SelectInput>
-    </FormField>
-  )
+const defaultScope: QuickAddScope = {
+  scopeType: 'personal',
+  walletId: null,
+  savingsGoalId: null,
 }
 
 export function QuickAddFab() {
+  const { showFab } = usePreferences()
   const [expanded, setExpanded] = useState(false)
-  const [activeForm, setActiveForm] = useState<ActiveForm>(null)
+  const [activeForm, setActiveForm] = useState<QuickAddAction | null>(null)
   const [walletId, setWalletId] = useState<string | null>(null)
+  const [verifyScope, setVerifyScope] = useState<QuickAddScope>(defaultScope)
 
-  const { create: createExpense } = useExpenses(walletId)
-  const { create: createIncome } = useIncome(walletId)
+  if (!showFab) return null
 
-  function openForm(form: ActiveForm) {
+  function openForm(form: QuickAddAction) {
     setExpanded(false)
     setWalletId(null)
+    setVerifyScope(defaultScope)
     setActiveForm(form)
   }
 
@@ -76,7 +43,7 @@ export function QuickAddFab() {
       <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-3 md:bottom-6 md:right-6">
         {expanded && (
           <div className="flex flex-col items-end gap-3">
-            {actions.map((action) => (
+            {quickAddActions.map((action) => (
               <button
                 key={action.key}
                 type="button"
@@ -105,29 +72,13 @@ export function QuickAddFab() {
         </button>
       </div>
 
-      {activeForm === 'transfer' && (
-        <Modal title="Transfer money" onClose={closeForm}>
-          <TransferForm onDone={closeForm} onCancel={closeForm} />
-        </Modal>
-      )}
-
-      {activeForm === 'expense' && (
-        <Modal title="Add expense" onClose={closeForm}>
-          <div className="space-y-4">
-            <WalletPicker walletId={walletId} onChange={setWalletId} />
-            <ExpenseForm onSubmit={createExpense} onCancel={closeForm} />
-          </div>
-        </Modal>
-      )}
-
-      {activeForm === 'income' && (
-        <Modal title="Add income" onClose={closeForm}>
-          <div className="space-y-4">
-            <WalletPicker walletId={walletId} onChange={setWalletId} />
-            <IncomeForm onSubmit={createIncome} onCancel={closeForm} />
-          </div>
-        </Modal>
-      )}
+      <QuickAddModals
+        activeForm={activeForm}
+        walletId={walletId}
+        verifyScope={verifyScope}
+        onClose={closeForm}
+        onWalletIdChange={setWalletId}
+      />
     </>
   )
 }

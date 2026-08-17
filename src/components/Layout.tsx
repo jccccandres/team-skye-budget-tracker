@@ -4,6 +4,7 @@ import { InviteBanner } from './wallets/InviteBanner'
 import { MobileHeader } from './MobileHeader'
 import { MobileNav } from './MobileNav'
 import { QuickAddFab } from './QuickAddFab'
+import { FabVisibilityToggle } from './FabVisibilityToggle'
 import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../hooks/useAuth'
 
@@ -98,6 +99,7 @@ export function Layout() {
 
         <div className="space-y-2 border-t border-slate-200 p-3 dark:border-slate-800">
           <ThemeToggle />
+          <FabVisibilityToggle />
           <NavLink to="/change-password" className={navLinkClass}>
             Change password
           </NavLink>

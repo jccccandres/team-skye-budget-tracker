@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { BarChart3, FileText, DollarSign, Wallet, CreditCard, TrendingDown, PiggyBank, ShoppingCart } from 'lucide-react'
+import { FabVisibilityToggle } from './FabVisibilityToggle'
 import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../hooks/useAuth'
 
@@ -119,6 +120,7 @@ export function MobileHeader() {
             </nav>
             <div className="border-t border-slate-200 pt-2 dark:border-slate-800">
               <ThemeToggle />
+              <FabVisibilityToggle />
               <NavLink
                 to="/change-password"
                 className={menuNavClass}

@@ -12,6 +12,7 @@ interface StatCardProps {
   /** An optional secondary figure shown under the main value/hint, e.g.
    * breaking out the portion of an expense total paid by credit card. */
   breakdown?: StatCardBreakdown
+  onClick?: () => void
 }
 
 const valueColors = {
@@ -21,9 +22,15 @@ const valueColors = {
   warning: 'text-amber-700 dark:text-amber-400',
 }
 
-export function StatCard({ label, value, hint, variant = 'default', breakdown }: StatCardProps) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+const cardClassName =
+  'rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900'
+
+const clickableCardClassName =
+  'cursor-pointer transition-colors hover:border-slate-300 hover:bg-slate-50 dark:hover:border-slate-600 dark:hover:bg-slate-800/50'
+
+export function StatCard({ label, value, hint, variant = 'default', breakdown, onClick }: StatCardProps) {
+  const content = (
+    <>
       <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
       <p className={`mt-2 text-2xl font-semibold ${valueColors[variant]}`}>{value}</p>
       {hint && <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{hint}</p>}
@@ -33,6 +40,20 @@ export function StatCard({ label, value, hint, variant = 'default', breakdown }:
           {breakdown.label}: {breakdown.value}
         </p>
       )}
-    </div>
+    </>
   )
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`w-full text-left ${cardClassName} ${clickableCardClassName}`}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return <div className={cardClassName}>{content}</div>
 }
