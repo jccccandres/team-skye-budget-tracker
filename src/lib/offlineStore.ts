@@ -50,12 +50,42 @@ export function writeCache<T>(key: string, value: T): void {
   }
 }
 
+function sanitizeOutbox(ops: OutboxOp[]): OutboxOp[] {
+  return ops.filter((op) => {
+    const payload = op.payload as Record<string, unknown>
+
+    if (op.table === 'grocery_lists') {
+      return !!(
+        typeof payload.id === 'string' &&
+        typeof payload.user_id === 'string' &&
+        typeof payload.name === 'string' &&
+        typeof payload.created_at === 'string'
+      )
+    }
+
+    if (op.table === 'grocery_items') {
+      return !!(
+        typeof payload.id === 'string' &&
+        typeof payload.list_id === 'string' &&
+        typeof payload.name === 'string' &&
+        typeof payload.category === 'string' &&
+        typeof payload.checked === 'boolean'
+      )
+    }
+
+    return !!(
+      typeof payload.id === 'string' &&
+      typeof payload.user_id === 'string'
+    )
+  })
+}
+
 function getOutbox(): OutboxOp[] {
-  return readCache<OutboxOp[]>('outbox', [])
+  return sanitizeOutbox(readCache<OutboxOp[]>('outbox', []))
 }
 
 function setOutbox(ops: OutboxOp[]): void {
-  writeCache('outbox', ops)
+  writeCache('outbox', sanitizeOutbox(ops))
 }
 
 /** Queue a write so it can be retried later if it fails or we're offline. */
@@ -97,8 +127,26 @@ export function hasPendingOps(): boolean {
 export async function flushOutbox(): Promise<void> {
   if (!supabase) return
 
-  const ops = getOutbox()
-  if (ops.length === 0) return
+  const rawOps = getOutbox()
+  const ops = rawOps.filter((op) => {
+    if (op.table !== 'grocery_lists') return true
+    const payload = op.payload as Record<string, unknown>
+    return !!(
+      typeof payload.id === 'string' &&
+      typeof payload.user_id === 'string' &&
+      typeof payload.name === 'string' &&
+      typeof payload.created_at === 'string'
+    )
+  })
+
+  if (ops.length === 0) {
+    if (rawOps.length > 0) setOutbox([])
+    return
+  }
+
+  if (JSON.stringify(rawOps) !== JSON.stringify(ops)) {
+    setOutbox(ops)
+  }
 
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i]

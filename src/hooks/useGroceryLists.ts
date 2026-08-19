@@ -127,9 +127,31 @@ export function useGroceryLists() {
         members: [],
       }
 
+      const serverRow: GroceryList = {
+        id: row.id,
+        user_id: row.user_id,
+        name: row.name,
+        created_at: row.created_at,
+      }
+
       persist([row, ...listsRef.current])
       setPending((prev) => new Set(prev).add(row.id))
-      enqueueOp({ id: row.id, table: 'grocery_lists', action: 'upsert', payload: row })
+      enqueueOp({ id: row.id, table: 'grocery_lists', action: 'upsert', payload: serverRow })
+
+      if (supabase) {
+        const { error: insertError } = await supabase.from('grocery_lists').upsert(serverRow)
+        if (insertError) {
+          return { error: insertError.message }
+        }
+
+        discardOps('grocery_lists', row.id)
+        setPending((prev) => {
+          const next = new Set(prev)
+          next.delete(row.id)
+          return next
+        })
+      }
+
       void flushOutbox().then(() => setPending(pendingIds('grocery_lists')))
 
       return { error: null }
@@ -145,9 +167,31 @@ export function useGroceryLists() {
       if (!existing) return { error: 'List not found.' }
 
       const row: GroceryListWithMembers = { ...existing, ...input }
+      const serverRow: GroceryList = {
+        id: row.id,
+        user_id: row.user_id,
+        name: row.name,
+        created_at: row.created_at,
+      }
+
       persist(listsRef.current.map((l) => (l.id === id ? row : l)))
       setPending((prev) => new Set(prev).add(id))
-      enqueueOp({ id, table: 'grocery_lists', action: 'upsert', payload: row })
+      enqueueOp({ id, table: 'grocery_lists', action: 'upsert', payload: serverRow })
+
+      if (supabase) {
+        const { error: updateError } = await supabase.from('grocery_lists').upsert(serverRow)
+        if (updateError) {
+          return { error: updateError.message }
+        }
+
+        discardOps('grocery_lists', id)
+        setPending((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }
+
       void flushOutbox().then(() => setPending(pendingIds('grocery_lists')))
 
       return { error: null }
@@ -160,6 +204,14 @@ export function useGroceryLists() {
       if (!user) return { error: 'Not authenticated.' }
 
       const wasPending = pending.has(id)
+
+      if (supabase) {
+        const { error: deleteError } = await supabase.from('grocery_lists').delete().eq('id', id)
+        if (deleteError) {
+          return { error: deleteError.message }
+        }
+      }
+
       persist(listsRef.current.filter((l) => l.id !== id))
       setPending((prev) => {
         const next = new Set(prev)

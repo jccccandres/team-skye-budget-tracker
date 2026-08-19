@@ -114,16 +114,76 @@ CREATE POLICY "Users can view own or shared grocery items"
 
 CREATE POLICY "Users can insert own or shared grocery items"
   ON grocery_items FOR INSERT
-  WITH CHECK (is_grocery_list_member(list_id));
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM grocery_lists gl
+      WHERE gl.id = grocery_items.list_id
+        AND (
+          gl.user_id = auth.uid()
+          OR EXISTS (
+            SELECT 1
+            FROM grocery_list_members glm
+            WHERE glm.list_id = gl.id
+              AND glm.user_id = auth.uid()
+          )
+        )
+    )
+  );
 
 CREATE POLICY "Users can update own or shared grocery items"
   ON grocery_items FOR UPDATE
-  USING (is_grocery_list_member(list_id))
-  WITH CHECK (is_grocery_list_member(list_id));
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM grocery_lists gl
+      WHERE gl.id = grocery_items.list_id
+        AND (
+          gl.user_id = auth.uid()
+          OR EXISTS (
+            SELECT 1
+            FROM grocery_list_members glm
+            WHERE glm.list_id = gl.id
+              AND glm.user_id = auth.uid()
+          )
+        )
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM grocery_lists gl
+      WHERE gl.id = grocery_items.list_id
+        AND (
+          gl.user_id = auth.uid()
+          OR EXISTS (
+            SELECT 1
+            FROM grocery_list_members glm
+            WHERE glm.list_id = gl.id
+              AND glm.user_id = auth.uid()
+          )
+        )
+    )
+  );
 
 CREATE POLICY "Users can delete own or shared grocery items"
   ON grocery_items FOR DELETE
-  USING (is_grocery_list_member(list_id));
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM grocery_lists gl
+      WHERE gl.id = grocery_items.list_id
+        AND (
+          gl.user_id = auth.uid()
+          OR EXISTS (
+            SELECT 1
+            FROM grocery_list_members glm
+            WHERE glm.list_id = gl.id
+              AND glm.user_id = auth.uid()
+          )
+        )
+    )
+  );
 
 DROP POLICY IF EXISTS "Members can view grocery list membership" ON grocery_list_members;
 CREATE POLICY "Members can view grocery list membership"
