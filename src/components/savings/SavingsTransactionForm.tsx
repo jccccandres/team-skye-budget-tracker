@@ -6,12 +6,13 @@ import type { SavingsTransactionInsert, SavingsTransactionType } from '../../typ
 import { todayISO } from '../../lib/format'
 
 interface SavingsTransactionFormProps {
+  defaultType?: SavingsTransactionType
   onSubmit: (data: SavingsTransactionInsert) => Promise<{ error: string | null }>
   onCancel: () => void
 }
 
-export function SavingsTransactionForm({ onSubmit, onCancel }: SavingsTransactionFormProps) {
-  const [type, setType] = useState<SavingsTransactionType>('deposit')
+export function SavingsTransactionForm({ defaultType = 'deposit', onSubmit, onCancel }: SavingsTransactionFormProps) {
+  const [type, setType] = useState<SavingsTransactionType>(defaultType)
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(todayISO())
   const [note, setNote] = useState('')

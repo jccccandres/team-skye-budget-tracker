@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DashboardActionMenu } from '../components/quick-add/DashboardActionMenu'
 import { QuickAddModals } from '../components/quick-add/QuickAddModals'
-import type { QuickAddAction, QuickAddScope } from '../components/quick-add/types'
+import { savingsQuickAddActions, type QuickAddAction, type QuickAddScope } from '../components/quick-add/types'
 import { TransferHistory } from '../components/transfers/TransferHistory'
 import { ProgressBar } from '../components/savings/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -454,16 +454,6 @@ export function DashboardPage() {
                   )}
                   hint={`Across ${savingsGoals.length} goal${savingsGoals.length === 1 ? '' : 's'}`}
                   variant="positive"
-                  onClick={
-                    actionsEnabled
-                      ? () =>
-                          openActionMenu({
-                            title: 'Savings',
-                            scope: { scopeType: 'personal', walletId: null, savingsGoalId: null },
-                            walletId: null,
-                          })
-                      : undefined
-                  }
                 />
                 <div className="mt-4 space-y-3">
                   {savingsGoals.map((goal) => {
@@ -658,6 +648,7 @@ export function DashboardPage() {
       {actionMenu && (
         <DashboardActionMenu
           title={actionMenu.title}
+          actions={actionMenu.scope.scopeType === 'savings_goal' ? savingsQuickAddActions : undefined}
           onSelect={handleActionSelect}
           onClose={() => setActionMenu(null)}
         />

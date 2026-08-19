@@ -3,18 +3,24 @@ import { quickAddActions, type QuickAddAction } from './types'
 
 interface DashboardActionMenuProps {
   title: string
+  actions?: { key: QuickAddAction; label: string }[]
   onSelect: (action: QuickAddAction) => void
   onClose: () => void
 }
 
-export function DashboardActionMenu({ title, onSelect, onClose }: DashboardActionMenuProps) {
+export function DashboardActionMenu({
+  title,
+  actions = quickAddActions,
+  onSelect,
+  onClose,
+}: DashboardActionMenuProps) {
   return (
     <Modal title={title} onClose={onClose}>
       <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
         Choose an action for this section.
       </p>
       <div className="grid gap-2">
-        {quickAddActions.map((action) => (
+        {actions.map((action) => (
           <button
             key={action.key}
             type="button"
