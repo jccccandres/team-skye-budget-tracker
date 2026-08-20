@@ -54,6 +54,10 @@ function sanitizeOutbox(ops: OutboxOp[]): OutboxOp[] {
   return ops.filter((op) => {
     const payload = op.payload as Record<string, unknown>
 
+    if (op.action === 'delete') {
+      return !!(payload && typeof payload.id === 'string')
+    }
+
     if (op.table === 'grocery_lists') {
       return !!(
         typeof payload.id === 'string' &&
