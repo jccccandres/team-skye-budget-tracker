@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { DashboardActionMenu } from '../components/quick-add/DashboardActionMenu'
+import { QuickAddModals } from '../components/quick-add/QuickAddModals'
+import type { QuickAddAction, QuickAddScope } from '../components/quick-add/types'
 import { VerificationStatusBanner } from '../components/verification/VerificationStatusBanner'
 import { VerifyBalanceModal } from '../components/verification/VerifyBalanceModal'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -32,6 +35,12 @@ const typeLabels: Record<CombinedTransaction['type'], string> = {
   transfer: 'Transfer',
 }
 
+interface TransactionActionContext {
+  title: string
+  scope: QuickAddScope
+  walletId: string | null
+}
+
 export function TransactionsPage() {
   const { wallets } = useWallets()
   const { items: goals } = useSavingsGoals()
@@ -39,6 +48,14 @@ export function TransactionsPage() {
   const { items: creditCards } = useCreditCards()
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [actionMenu, setActionMenu] = useState<TransactionActionContext | null>(null)
+  const [activeForm, setActiveForm] = useState<QuickAddAction | null>(null)
+  const [formWalletId, setFormWalletId] = useState<string | null>(null)
+  const [verifyScope, setVerifyScope] = useState<QuickAddScope>({
+    scopeType: 'personal',
+    walletId: null,
+    savingsGoalId: null,
+  })
 
   const { data, loading, error } = useTransactionsData(activeWalletId)
   const { latestForScope, createVerification } = useBalanceVerifications()
@@ -112,6 +129,41 @@ export function TransactionsPage() {
     return { text: `${sign}${formatCurrency(txn.amount)}`, className }
   }
 
+  function openActionMenu(context: TransactionActionContext) {
+    setActionMenu(context)
+  }
+
+  function handleActionSelect(action: QuickAddAction) {
+    if (!actionMenu) return
+
+    setFormWalletId(actionMenu.walletId)
+    setVerifyScope(actionMenu.scope)
+    setActionMenu(null)
+    setActiveForm(action)
+  }
+
+  function closeActiveForm() {
+    setActiveForm(null)
+  }
+
+  function openDirectAction(action: QuickAddAction, context: TransactionActionContext) {
+    setFormWalletId(context.walletId)
+    setVerifyScope(context.scope)
+    setActiveForm(action)
+  }
+
+  const currentScope: QuickAddScope = {
+    scopeType: activeWalletId ? 'wallet' : 'personal',
+    walletId: activeWalletId,
+    savingsGoalId: null,
+  }
+
+  const transactionContext: TransactionActionContext = {
+    title: activeWalletId ? wallets.find((wallet) => wallet.id === activeWalletId)?.name ?? 'Wallet' : 'Personal',
+    scope: currentScope,
+    walletId: activeWalletId,
+  }
+
   return (
     <div>
       <PageHeader
@@ -140,7 +192,12 @@ export function TransactionsPage() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Income" value={formatCurrency(data.monthIncome)} variant="positive" />
+            <StatCard
+              label="Income"
+              value={formatCurrency(data.monthIncome)}
+              variant="positive"
+              onClick={() => openDirectAction('income', transactionContext)}
+            />
             <StatCard
               label="Expenses"
               value={formatCurrency(data.monthExpenses)}
@@ -150,18 +207,21 @@ export function TransactionsPage() {
                   ? { label: 'Credit card', value: formatCurrency(data.creditCardExpenses), variant: 'warning' }
                   : undefined
               }
+              onClick={() => openDirectAction('expense', transactionContext)}
             />
             <StatCard
               label="Transferred"
               value={formatCurrency(data.transferredOut)}
               hint="Total sent out"
               variant={data.transferredOut > 0 ? 'negative' : 'default'}
+              onClick={() => openDirectAction('transfer', transactionContext)}
             />
             <StatCard
               label="Balance"
               value={formatCurrency(data.netBalance)}
               hint="Income minus wallet-paid expenses minus transferred"
               variant={data.netBalance >= 0 ? 'positive' : 'negative'}
+              onClick={() => openActionMenu(transactionContext)}
             />
           </div>
 
@@ -210,6 +270,22 @@ export function TransactionsPage() {
           </section>
         </>
       )}
+
+      {actionMenu && (
+        <DashboardActionMenu
+          title={actionMenu.title}
+          onSelect={handleActionSelect}
+          onClose={() => setActionMenu(null)}
+        />
+      )}
+
+      <QuickAddModals
+        activeForm={activeForm}
+        walletId={formWalletId}
+        verifyScope={verifyScope}
+        onClose={closeActiveForm}
+        onWalletIdChange={setFormWalletId}
+      />
 
       {showVerifyModal && (
         <VerifyBalanceModal
