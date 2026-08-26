@@ -26,14 +26,15 @@ function TransactionsIcon() {
   )
 }
 
-function ReportsIcon() {
+function SavingsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M3 3v16.5A1.5 1.5 0 0 0 4.5 21H21M7.5 15.75V18M12 12.75V18m4.5-9V18"
+        d="M3 7.5A2.25 2.25 0 0 1 5.25 5.25h13.5A2.25 2.25 0 0 1 21 7.5v9A2.25 2.25 0 0 1 18.75 18.75H5.25A2.25 2.25 0 0 1 3 16.5v-9Z"
       />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 12h7.5M12 8.25v7.5" />
     </svg>
   )
 }
@@ -41,7 +42,7 @@ function ReportsIcon() {
 const navItems: { to: string; label: string; icon: ReactNode }[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/transactions', label: 'Transactions', icon: <TransactionsIcon /> },
-  { to: '/reports/expenses', label: 'Reports', icon: <ReportsIcon /> },
+  { to: '/savings', label: 'Savings', icon: <SavingsIcon /> },
 ]
 
 function bottomNavClass({ isActive }: { isActive: boolean }) {
