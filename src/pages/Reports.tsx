@@ -14,6 +14,7 @@ import { useReportsData } from '../hooks/useReportsData'
 import { useSavingsGoals } from '../hooks/useSavings'
 import { useToast } from '../hooks/useToast'
 import { useWallets } from '../hooks/useWallets'
+import { listPanel } from '../lib/classes'
 import { formatCurrency, formatDate, reportPresetRange, type ReportPreset } from '../lib/format'
 
 export function ReportsPage() {
@@ -137,6 +138,29 @@ export function ReportsPage() {
               variant={data.netBalance >= 0 ? 'positive' : 'negative'}
             />
           </div>
+
+          <section className="mt-8">
+            <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Credit card spending by wallet
+            </h3>
+            {data.creditCardExpensesByWallet.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">No credit-card expenses in this range.</p>
+            ) : (
+              <ul className={listPanel}>
+                {data.creditCardExpensesByWallet.map((row) => (
+                  <li key={row.walletId ?? 'personal'} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{row.walletName}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{row.count} purchase{row.count === 1 ? '' : 's'}</p>
+                    </div>
+                    <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      {formatCurrency(row.total)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <section className="mt-8">
             <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">

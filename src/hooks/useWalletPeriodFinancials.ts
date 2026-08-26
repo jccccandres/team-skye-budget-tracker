@@ -4,6 +4,13 @@ import type { Expense, Income } from '../types/database'
 import { useAuth } from './useAuth'
 import { sumTransfersOut, useTransfers } from './useTransfers'
 
+export interface CreditCardExpenseByWalletRow {
+  walletId: string | null
+  walletName: string
+  total: number
+  count: number
+}
+
 export interface WalletPeriodFinancials {
   incomeRows: Income[]
   expenseRows: Expense[]
@@ -16,6 +23,8 @@ export interface WalletPeriodFinancials {
   totalCreditCardExpenses: number
   /** Expense rows that were paid using a credit card */
   creditCardExpenseRows: Expense[]
+  /** Credit-card spending grouped by wallet for the current scope/date range. */
+  creditCardExpensesByWallet: CreditCardExpenseByWalletRow[]
   transferredOut: number
   /** Net balance that excludes credit-card-paid expenses */
   netBalance: number
@@ -29,6 +38,7 @@ const emptyData: WalletPeriodFinancials = {
   totalExpensesExcludingCard: 0,
   totalCreditCardExpenses: 0,
   creditCardExpenseRows: [],
+  creditCardExpensesByWallet: [],
   transferredOut: 0,
   netBalance: 0,
 }
@@ -183,6 +193,7 @@ export function useWalletPeriodFinancials(
         totalExpensesExcludingCard,
         totalCreditCardExpenses,
         creditCardExpenseRows: [],
+        creditCardExpensesByWallet: [],
         transferredOut,
         netBalance: totalIncome - totalExpensesExcludingCard - transferredOut,
       }
@@ -194,6 +205,23 @@ export function useWalletPeriodFinancials(
       const creditCardExpenseRows = expenseRows.filter((r) => r.payment_source === 'credit_card')
       const totalCreditCardExpenses = creditCardExpenseRows.reduce((sum, r) => sum + Number(r.amount), 0)
       const totalExpensesExcludingCard = totalExpenses - totalCreditCardExpenses
+      const creditCardExpensesByWallet = Array.from(
+        creditCardExpenseRows.reduce<Map<string | null, { total: number; count: number }>>((map, row) => {
+          const key = row.wallet_id ?? null
+          const current = map.get(key) ?? { total: 0, count: 0 }
+          current.total += Number(row.amount)
+          current.count += 1
+          map.set(key, current)
+          return map
+        }, new Map()),
+      )
+        .map(([walletIdKey, value]) => ({
+          walletId: walletIdKey,
+          walletName: walletIdKey ? 'Shared wallet' : 'Personal',
+          total: value.total,
+          count: value.count,
+        }))
+        .sort((a, b) => b.total - a.total)
 
       const transferredOut = sumTransfersOut(transfers, walletId ?? null, start, end, user.id)
 
@@ -205,6 +233,7 @@ export function useWalletPeriodFinancials(
         totalExpensesExcludingCard,
         totalCreditCardExpenses,
         creditCardExpenseRows,
+        creditCardExpensesByWallet,
         transferredOut,
         netBalance: totalIncome - totalExpensesExcludingCard - transferredOut,
       }

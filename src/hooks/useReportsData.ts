@@ -19,6 +19,13 @@ export interface CategoryExpense {
   creditCardId: string | null
 }
 
+export interface WalletCreditCardSpend {
+  walletId: string | null
+  walletName: string
+  total: number
+  count: number
+}
+
 export interface TrendPoint {
   /** YYYY-MM for monthly, or the Monday (YYYY-MM-DD) that starts the week
    * for weekly. */
@@ -39,6 +46,7 @@ interface ReportsData {
   /** Total of expenses paid by credit card in this period (also included
    * in totalExpenses - broken out separately for display). */
   creditCardExpenses: number
+  creditCardExpensesByWallet: WalletCreditCardSpend[]
   transferredOut: number
   netBalance: number
 }
@@ -51,6 +59,7 @@ const emptyData: ReportsData = {
   totalIncome: 0,
   totalExpenses: 0,
   creditCardExpenses: 0,
+  creditCardExpensesByWallet: [],
   transferredOut: 0,
   netBalance: 0,
 }
@@ -167,6 +176,13 @@ export function useReportsData(walletId: string | null, start: string, end: stri
     const monthlyTrend = buildTrend(monthKeysInRange(start, end), monthKey, incomeRows, expenseRows)
     const weeklyTrend = buildTrend(weekKeysInRange(start, end), weekKey, incomeRows, expenseRows)
 
+    const creditCardExpensesByWallet = financials.creditCardExpensesByWallet.map((row) => ({
+      walletId: row.walletId,
+      walletName: row.walletName,
+      total: Number(row.total),
+      count: row.count,
+    }))
+
     return {
       categoryTotals,
       expensesByCategory,
@@ -175,6 +191,7 @@ export function useReportsData(walletId: string | null, start: string, end: stri
       totalIncome: financials.totalIncome,
       totalExpenses: financials.totalExpenses,
       creditCardExpenses: financials.totalCreditCardExpenses,
+      creditCardExpensesByWallet,
       transferredOut: financials.transferredOut,
       netBalance: financials.netBalance,
     }
