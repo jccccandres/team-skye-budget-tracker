@@ -90,7 +90,9 @@ export function GroceryListDetailPage() {
       ) : (
         <div className="space-y-6">
           {sections.map(({ category, label }) => {
-            const sectionItems = items.filter((i) => i.category === category)
+            const sectionItems = [...items.filter((i) => i.category === category)].sort(
+              (a, b) => Number(a.checked) - Number(b.checked),
+            )
             if (sectionItems.length === 0) return null
 
             return (
