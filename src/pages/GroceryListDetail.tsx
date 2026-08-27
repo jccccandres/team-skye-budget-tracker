@@ -38,6 +38,9 @@ export function GroceryListDetailPage() {
 
   function handleToggle(item: GroceryItem) {
     if (item.checked) {
+      const shouldUncheck = window.confirm(`Mark "${item.name}" as unchecked?`)
+      if (!shouldUncheck) return
+
       // Unchecking clears the price too — it'll be re-prompted if checked again.
       void setChecked(item.id, false, null)
     } else {
