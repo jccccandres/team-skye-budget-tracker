@@ -86,6 +86,26 @@ export function useGroceryItems(listId: string | null) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online])
 
+  useEffect(() => {
+    if (!supabase || !listId) return
+
+    const channel = supabase.channel(`grocery-items:${listId}`)
+
+    channel
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'grocery_items', filter: `list_id=eq.${listId}` },
+        () => {
+          void refresh()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [listId, refresh])
+
   const addItem = useCallback(
     async (name: string, category: GroceryItemCategory) => {
       if (!user || !listId) return { error: 'No list selected.' }
